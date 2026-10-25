@@ -1,0 +1,52 @@
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import OperationalError
+from sqlalchemy.orm import Session, sessionmaker
+
+from app.api import auth, expenses, health, users
+from app.core.config import Settings, get_settings
+from app.db import build_engine
+
+
+def create_app(
+    settings: Settings | None = None, session_factory: sessionmaker[Session] | None = None
+) -> FastAPI:
+    settings = settings or get_settings()
+    engine = build_engine(settings) if session_factory is None else None
+    if session_factory is None:
+        session_factory = sessionmaker(bind=engine, expire_on_commit=False)
+
+    @asynccontextmanager
+    async def lifespan(application: FastAPI):
+        yield
+        if engine is not None:
+            engine.dispose()
+
+    application = FastAPI(title="TexiAiBooks API", version="0.1.0", lifespan=lifespan)
+    application.state.settings = settings
+    application.state.session_factory = session_factory
+    application.include_router(health.router)
+    for router in (auth.router, users.router, expenses.router):
+        application.include_router(router, prefix="/api/v1")
+
+    @application.exception_handler(OperationalError)
+    def unavailable(request: Request, exc: OperationalError):
+        return JSONResponse(status_code=503, content={"detail": "Database unavailable"})
+
+    @application.exception_handler(RequestValidationError)
+    def invalid_request(request: Request, exc: RequestValidationError):
+        # Pydantic's default errors can echo passwords/raw request input.
+        errors = [
+            {"loc": list(error["loc"]), "msg": error["msg"], "type": error["type"]}
+            for error in exc.errors()
+        ]
+        return JSONResponse(status_code=422, content={"detail": errors})
+
+    return application
+
+
+app = create_app()
+
