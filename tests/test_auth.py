@@ -55,11 +55,11 @@ def test_login_and_current_user(client, account):
     response = client.post("/api/v1/auth/login", data={"username": " DRIVER@EXAMPLE.COM ", "password": "safe-password-123"})
     assert response.status_code == 200
     assert response.json()["token_type"] == "bearer"
-    assert response.json()["expires_in"] == 1800
+    assert response.json()["expires_in"] == 900
     assert response.headers["cache-control"] == "no-store"
     me = client.get("/api/v1/users/me", headers=headers)
     assert me.status_code == 200
-    assert me.json() == user
+    assert me.json() == user | {"display_name": None}
     assert "password" not in me.text
 
 
@@ -82,7 +82,8 @@ def test_login_requires_form_data(client):
 def test_reject_bad_tokens(client, account, settings, kind):
     user, headers = account
     now = datetime.now(timezone.utc)
-    payload = {"sub": user["id"], "iat": now, "exp": now + timedelta(minutes=5)}
+    payload = jwt.decode(headers["Authorization"].split()[1], settings.jwt_secret_key.get_secret_value(),
+                         algorithms=["HS256"], audience=settings.jwt_audience)
     key = settings.jwt_secret_key.get_secret_value()
     if kind == "missing":
         headers = {}

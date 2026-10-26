@@ -62,8 +62,8 @@ def test_token_round_trip(settings):
     subject = uuid4()
     token = create_access_token(subject, settings)
     assert decode_subject(token, settings) == subject
-    claims = jwt.decode(token, settings.jwt_secret_key.get_secret_value(), algorithms=["HS256"])
-    assert claims["exp"] - claims["iat"] == 1800
+    claims = jwt.decode(token, settings.jwt_secret_key.get_secret_value(), algorithms=["HS256"], audience=settings.jwt_audience)
+    assert claims["exp"] - claims["iat"] == 900
 
 
 def test_db_failure_is_controlled_and_liveness_independent(settings):

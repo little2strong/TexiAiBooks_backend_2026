@@ -1,5 +1,7 @@
 # TexiAiBooks backend — প্রথম milestone
 
+> **Phase 02 update (26 October 2026):** Authentication now includes revocable device sessions, rotating hashed refresh credentials, password recovery/change, profile updates, shared rate limits, security events and configurable Google/Apple ID-token validation. Read [docs/AUTH_API.md](docs/AUTH_API.md), [the audit](docs/BACKEND_AUDIT_REPORT.md) and [the completion report](docs/PHASE_02_COMPLETION_REPORT.md) for current contracts and external configuration. Google/Apple login, SMTP and SMS live verification remain pending. Existing `.env` is preserved; new installations default to 15-minute access tokens. Apply the additive migration and log in again after upgrading.
+
 এখানে Register → Login → নিজের expense তৈরি, দেখা, বদলানো এবং soft delete করা যায়। এটি local development-এর ভিত্তি; production-ready দাবি করা হচ্ছে না।
 
 Stack: Python 3.12, FastAPI/Uvicorn, PostgreSQL 16, synchronous SQLAlchemy 2 + psycopg 3, Alembic, Pydantic v2, PyJWT, pwdlib/Argon2, pytest/httpx। Database-এর কাজ করা route ও dependency-গুলো সাধারণ `def` ব্যবহার করে।
@@ -76,7 +78,7 @@ Database port শুধু `127.0.0.1`-এ publish হয়। Data `texiaibooks_p
 & '.\.venv\Scripts\python.exe' -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Current revision হবে `0001_users_expenses (head)`। Schema বদলাতে Alembic ব্যবহার করুন; application `create_all()` চালায় না। ভবিষ্যতে model বদলালে `alembic revision --autogenerate -m "describe change"` দিয়ে migration তৈরি করে SQL ও downgrade review করবেন, তারপর `upgrade head` চালাবেন। আগের migration মুছবেন বা নতুন করে শুরু করবেন না।
+Current revision হবে `0002_auth_security (head)`। Schema বদলাতে Alembic ব্যবহার করুন; application `create_all()` চালায় না। ভবিষ্যতে model বদলালে `alembic revision --autogenerate -m "describe change"` দিয়ে migration তৈরি করে SQL ও downgrade review করবেন, তারপর `upgrade head` চালাবেন। আগের migration মুছবেন বা নতুন করে শুরু করবেন না।
 
 Browser-এ খুলুন:
 
@@ -99,7 +101,7 @@ Browser-এ খুলুন:
 
 সফল হলে `201` এবং user-এর `id`, `email`, timestamp পাবেন। Password/hash response-এ থাকবে না। একই email আবার দিলে `409`।
 
-২. `POST /api/v1/auth/login`-এ `username` ঘরে **email address** এবং `password` ঘরে password দিন। Login **form data** (`application/x-www-form-urlencoded`), JSON নয়। `grant_type` দিলে `password` দিন; `scope`, `client_id`, `client_secret` খালি রাখা যায়। Response-এ `access_token`, `token_type: bearer`, `expires_in: 1800` পাবেন।
+২. `POST /api/v1/auth/login`-এ `username` ঘরে **email address** এবং `password` ঘরে password দিন। Login **form data** (`application/x-www-form-urlencoded`), JSON নয়। `grant_type` দিলে `password` দিন; `scope`, `client_id`, `client_secret` খালি রাখা যায়। Response-এ `access_token`, `token_type: bearer`, `expires_in`, `refresh_token`, `refresh_expires_in`, `session_id` পাবেন। Default `expires_in: 900`; existing 30-minute `.env` দিলে `1800`। Refresh credential নিরাপদ storage-এ রাখুন এবং প্রতিবার refresh-এর পরে নতুন মান বসান।
 
 ৩. Swagger-এর উপরের **Authorize** চাপুন। সেখানেও `username` ঘরে email ও password দিন, **Authorize** → **Close**। Swagger নিজে login করে Bearer token ব্যবহার করবে। এরপর `GET /api/v1/users/me` দিয়ে user দেখুন।
 
@@ -129,7 +131,7 @@ Expense থাকলে `items`-এ আসবে। একটি expense-এর 
 
 - Email-এর চারপাশের whitespace বাদ দিয়ে পুরো address lowercase করা হয়; register ও login-এ একই নিয়ম। Database-এ normalized email-এর unique constraint আছে।
 - Password ৮–১২৮ character; whitespace ইচ্ছাকৃতভাবে trim করা হয় না। Argon2id hash রাখা হয়। ভুল email/password-এ একই generic `401` message।
-- JWT lifetime default ৩০ মিনিট; `.env`-এর `ACCESS_TOKEN_EXPIRE_MINUTES` দিয়ে ১–৬০ মিনিট করা যায়। HS256 signature, expiry, issued-at এবং UUID subject যাচাই করা হয়। Missing/invalid/expired token-এ `401`। মেয়াদ শেষ হলে আবার login করুন।
+- JWT lifetime default ১৫ মিনিট; `.env`-এর `ACCESS_TOKEN_EXPIRE_MINUTES` দিয়ে ১–৩০ মিনিট করা যায়। HS256 signature, issuer/audience, expiry, issued-at, UUID identifiers ও active device session যাচাই করা হয়। Missing/invalid/expired/revoked token-এ `401`। Access token-এর মেয়াদ শেষ হলে `/api/v1/auth/refresh` ব্যবহার করুন; revoked বা expired session হলে আবার login করুন।
 - Protected request header: `Authorization: Bearer <access_token>`। Token/password application log-এ লিখবেন না।
 - `amount_pence`: JSON integer, `1` থেকে `2147483647`; float, string ও boolean চলে না। Currency শুধু `GBP`।
 - Category: `fuel`, `maintenance`, `insurance`, `licensing`, `parking`, `other`। এগুলো expense label; tax treatment বোঝায় না।
@@ -225,4 +227,4 @@ docker compose up -d --wait db
 | `scripts/setup_env.py` | একবার random local `.env` তৈরি |
 | `tests/` | Independent ও isolated PostgreSQL tests |
 
-Income tracking, receipts, mileage, tax estimates, AI, subscriptions, accountant handoff, refresh token, password reset, email delivery ও production deployment এই milestone-এর বাইরে। কোনো tax rule বা external integration যোগ করা হয়নি।
+Income tracking, receipts, mileage, tax estimates, AI, subscriptions, accountant handoff ও production deployment এই implementation-এর বাইরে। Phase 02-এ refresh/session security, password recovery এবং configurable SMTP/provider validation যোগ হয়েছে; live SMTP, SMS, Google ও Apple verification বাকি। কোনো tax rule যোগ করা হয়নি।

@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.api import auth, expenses, health, users
 from app.core.config import Settings, get_settings
 from app.db import build_engine
+from app.services.delivery import DisabledSMS, SMTPResetDelivery
+from app.services.identity import IdentityVerifier
 
 
 def create_app(
@@ -28,6 +30,18 @@ def create_app(
     application = FastAPI(title="TexiAiBooks API", version="0.1.0", lifespan=lifespan)
     application.state.settings = settings
     application.state.session_factory = session_factory
+    application.state.reset_delivery = SMTPResetDelivery(settings)
+    application.state.sms_delivery = DisabledSMS()
+    application.state.identity_verifier = IdentityVerifier(settings)
+
+    @application.middleware("http")
+    async def security_headers(request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        if request.url.path.startswith(("/api/v1/auth", "/api/v1/users")):
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["Pragma"] = "no-cache"
+        return response
     application.include_router(health.router)
     for router in (auth.router, users.router, expenses.router):
         application.include_router(router, prefix="/api/v1")

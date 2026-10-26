@@ -13,7 +13,7 @@ def main() -> None:
         "POSTGRES_HOST=127.0.0.1\n"
         "POSTGRES_PORT=5433\n"
         f"JWT_SECRET_KEY={secrets.token_urlsafe(48)}\n"
-        "ACCESS_TOKEN_EXPIRE_MINUTES=30\n"
+        "ACCESS_TOKEN_EXPIRE_MINUTES=15\n"
     )
     try:
         with path.open("x", encoding="utf-8") as file:

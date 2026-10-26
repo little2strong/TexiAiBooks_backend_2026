@@ -1,4 +1,5 @@
 from app.models.expense import Expense
 from app.models.user import User
+from app.models.auth import AuthChallenge, DeviceSession, ExternalIdentity, RateLimitBucket, RefreshCredential, SecurityEvent
 
-__all__ = ["Expense", "User"]
+__all__ = ["Expense", "User", "AuthChallenge", "DeviceSession", "ExternalIdentity", "RateLimitBucket", "RefreshCredential", "SecurityEvent"]
