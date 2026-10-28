@@ -1,6 +1,8 @@
 """Create local development secrets once, without printing or overwriting them."""
 
 from pathlib import Path
+import base64
+import json
 import secrets
 
 
@@ -13,6 +15,8 @@ def main() -> None:
         "POSTGRES_HOST=127.0.0.1\n"
         "POSTGRES_PORT=5433\n"
         f"JWT_SECRET_KEY={secrets.token_urlsafe(48)}\n"
+        f"IDENTIFIER_ENCRYPTION_KEYS={json.dumps([base64.urlsafe_b64encode(secrets.token_bytes(32)).decode()])}\n"
+        f"PHONE_IDENTITY_HMAC_KEY={secrets.token_urlsafe(48)}\n"
         "ACCESS_TOKEN_EXPIRE_MINUTES=15\n"
     )
     try:

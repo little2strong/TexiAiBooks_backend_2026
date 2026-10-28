@@ -31,7 +31,7 @@ class AuthContext:
 
 
 def current_auth(
-    token: Annotated[str, Depends(oauth2_scheme)], session: SessionDep, settings: SettingsDep
+    token: Annotated[str, Depends(oauth2_scheme)], session: SessionDep, settings: SettingsDep, request: Request
 ) -> AuthContext:
     invalid = HTTPException(
         status_code=401, detail="Could not validate credentials", headers={"WWW-Authenticate": "Bearer"}
@@ -39,14 +39,16 @@ def current_auth(
     try:
         claims = decode_access_token(token, settings)
         subject = UUID(claims["sub"])
+        session_id = UUID(claims["sid"])
     except (InvalidTokenError, ValueError, TypeError, KeyError):
         raise invalid from None
     user = session.get(User, subject)
     if user is None:
         raise invalid
-    device = session.get(DeviceSession, UUID(claims["sid"]))
+    device = session.get(DeviceSession, session_id)
     if device is None or device.user_id != user.id or device.revoked_at is not None or device.expires_at <= utc_now():
         raise invalid
+    request.state.device_id = device.id
     return AuthContext(user, device)
 
 

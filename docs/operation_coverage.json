@@ -1,0 +1,839 @@
+[
+  {
+    "id": "A01",
+    "proposed_path": "/v1/auth/challenges",
+    "method": "POST",
+    "actual_path": "/api/v1/auth/challenges",
+    "status": "External dependency required",
+    "evidence": "tests/test_auth.py, test_auth_security.py, test_identity.py, test_books_integrations.py",
+    "notes": "Challenge lifecycle implemented; real SMS adapter, encryption key ring and stable phone hashing key required"
+  },
+  {
+    "id": "A02",
+    "proposed_path": "/v1/auth/challenges/{id}/verify",
+    "method": "POST",
+    "actual_path": "/api/v1/auth/challenges/{id}/verify",
+    "status": "External dependency required",
+    "evidence": "tests/test_auth.py, test_auth_security.py, test_identity.py, test_books_integrations.py",
+    "notes": "Challenge lifecycle implemented; real SMS adapter, encryption key ring and stable phone hashing key required"
+  },
+  {
+    "id": "A03",
+    "proposed_path": "/v1/auth/providers/{provider}",
+    "method": "POST",
+    "actual_path": "/api/v1/auth/providers/{provider}",
+    "status": "External dependency required",
+    "evidence": "tests/test_auth.py, test_auth_security.py, test_identity.py, test_books_integrations.py",
+    "notes": "Existing signed OIDC verifier retained; approved client IDs and native provider flow required"
+  },
+  {
+    "id": "A04",
+    "proposed_path": "/v1/auth/refresh",
+    "method": "POST",
+    "actual_path": "/api/v1/auth/refresh",
+    "status": "Existing and verified",
+    "evidence": "tests/test_auth.py, test_auth_security.py, test_identity.py, test_books_integrations.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "A05",
+    "proposed_path": "/v1/auth/logout",
+    "method": "POST",
+    "actual_path": "/api/v1/auth/logout",
+    "status": "Existing and verified",
+    "evidence": "tests/test_auth.py, test_auth_security.py, test_identity.py, test_books_integrations.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "A06",
+    "proposed_path": "/v1/me",
+    "method": "GET",
+    "actual_path": "/api/v1/me",
+    "status": "Existing and verified",
+    "evidence": "tests/test_auth.py, test_auth_security.py, test_identity.py, test_books_integrations.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "A07",
+    "proposed_path": "/v1/auth/challenges/{id}/resend",
+    "method": "POST",
+    "actual_path": "/api/v1/auth/challenges/{id}/resend",
+    "status": "External dependency required",
+    "evidence": "tests/test_auth.py, test_auth_security.py, test_identity.py, test_books_integrations.py",
+    "notes": "Challenge lifecycle implemented; real SMS adapter, encryption key ring and stable phone hashing key required"
+  },
+  {
+    "id": "P01",
+    "proposed_path": "/v1/me",
+    "method": "PATCH",
+    "actual_path": "/api/v1/me",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_integrations.py, test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "P02",
+    "proposed_path": "/v1/me/onboarding",
+    "method": "GET",
+    "actual_path": "/api/v1/me/onboarding",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_integrations.py, test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "P03",
+    "proposed_path": "/v1/me/onboarding",
+    "method": "PATCH",
+    "actual_path": "/api/v1/me/onboarding",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_integrations.py, test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "P04",
+    "proposed_path": "/v1/me/driver-profile",
+    "method": "GET",
+    "actual_path": "/api/v1/me/driver-profile",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_integrations.py, test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "P05",
+    "proposed_path": "/v1/me/driver-profile",
+    "method": "PUT",
+    "actual_path": "/api/v1/me/driver-profile",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_integrations.py, test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "P06",
+    "proposed_path": "/v1/me/tax-profile",
+    "method": "GET",
+    "actual_path": "/api/v1/me/tax-profile",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_integrations.py, test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "P07",
+    "proposed_path": "/v1/me/tax-profile",
+    "method": "PUT",
+    "actual_path": "/api/v1/me/tax-profile",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_integrations.py, test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "F01",
+    "proposed_path": "/v1/reference-data",
+    "method": "GET",
+    "actual_path": "/api/v1/reference-data",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_workflows.py",
+    "notes": "Stable code/UUID catalogs; council codes entered manually; no council authority validation claimed"
+  },
+  {
+    "id": "V01",
+    "proposed_path": "/v1/vehicles/lookup",
+    "method": "POST",
+    "actual_path": "/api/v1/vehicles/lookup",
+    "status": "External dependency required",
+    "evidence": "tests/test_books.py, test_books_workflows.py; HMRC vehicle guidance",
+    "notes": "Returns unavailable/manual fallback until a lookup provider is installed"
+  },
+  {
+    "id": "V02",
+    "proposed_path": "/v1/vehicles",
+    "method": "GET",
+    "actual_path": "/api/v1/vehicles",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; HMRC vehicle guidance",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "V03",
+    "proposed_path": "/v1/vehicles",
+    "method": "POST",
+    "actual_path": "/api/v1/vehicles",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; HMRC vehicle guidance",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "V04",
+    "proposed_path": "/v1/vehicles/{id}",
+    "method": "GET",
+    "actual_path": "/api/v1/vehicles/{id}",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; HMRC vehicle guidance",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "V05",
+    "proposed_path": "/v1/vehicles/{id}/claim-method",
+    "method": "POST",
+    "actual_path": "/api/v1/vehicles/{id}/claim-method",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; HMRC vehicle guidance",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "V06",
+    "proposed_path": "/v1/vehicles/{id}",
+    "method": "PATCH",
+    "actual_path": "/api/v1/vehicles/{id}",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; HMRC vehicle guidance",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "I01",
+    "proposed_path": "/v1/me/income-sources",
+    "method": "GET",
+    "actual_path": "/api/v1/me/income-sources",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "I02",
+    "proposed_path": "/v1/me/income-sources",
+    "method": "PUT",
+    "actual_path": "/api/v1/me/income-sources",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "L01",
+    "proposed_path": "/v1/transactions",
+    "method": "GET",
+    "actual_path": "/api/v1/transactions",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_concurrency.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "L02",
+    "proposed_path": "/v1/transactions",
+    "method": "POST",
+    "actual_path": "/api/v1/transactions",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_concurrency.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "L03",
+    "proposed_path": "/v1/transactions/{id}",
+    "method": "GET",
+    "actual_path": "/api/v1/transactions/{id}",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_concurrency.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "L04",
+    "proposed_path": "/v1/transactions/{id}",
+    "method": "PATCH",
+    "actual_path": "/api/v1/transactions/{id}",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_concurrency.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "L05",
+    "proposed_path": "/v1/transactions/{id}",
+    "method": "DELETE",
+    "actual_path": "/api/v1/transactions/{id}",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_concurrency.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "L06",
+    "proposed_path": "/v1/transactions/{id}/reversals",
+    "method": "POST",
+    "actual_path": "/api/v1/transactions/{id}/reversals",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_concurrency.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "R01",
+    "proposed_path": "/v1/dashboard",
+    "method": "GET",
+    "actual_path": "/api/v1/dashboard",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_integrations.py, test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "R02",
+    "proposed_path": "/v1/reports/weekly",
+    "method": "GET",
+    "actual_path": "/api/v1/reports/weekly",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_integrations.py, test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "R03",
+    "proposed_path": "/v1/reports/annual",
+    "method": "GET",
+    "actual_path": "/api/v1/reports/annual",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_integrations.py, test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "R04",
+    "proposed_path": "/v1/categories/summary",
+    "method": "GET",
+    "actual_path": "/api/v1/categories/summary",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_integrations.py, test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "R05",
+    "proposed_path": "/v1/categories/{id}/transactions",
+    "method": "GET",
+    "actual_path": "/api/v1/categories/{id}/transactions",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_integrations.py, test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "R06",
+    "proposed_path": "/v1/reports/personal",
+    "method": "GET",
+    "actual_path": "/api/v1/reports/personal",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_integrations.py, test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "R07",
+    "proposed_path": "/v1/categories/{id}/business-use",
+    "method": "PUT",
+    "actual_path": "/api/v1/categories/{id}/business-use",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_integrations.py, test_books_workflows.py",
+    "notes": "Prospective or reasoned open-year correction of inherited defaults; explicit per-record shares remain authoritative"
+  },
+  {
+    "id": "C01",
+    "proposed_path": "/v1/receipts",
+    "method": "POST",
+    "actual_path": "/api/v1/receipts",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; controlled scanner/OCR",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "C02",
+    "proposed_path": "/v1/receipts",
+    "method": "GET",
+    "actual_path": "/api/v1/receipts",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; controlled scanner/OCR",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "C03",
+    "proposed_path": "/v1/receipts/{id}",
+    "method": "GET",
+    "actual_path": "/api/v1/receipts/{id}",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; controlled scanner/OCR",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "C04",
+    "proposed_path": "/v1/receipts/{id}",
+    "method": "PATCH",
+    "actual_path": "/api/v1/receipts/{id}",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; controlled scanner/OCR",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "C05",
+    "proposed_path": "/v1/receipts/{id}/confirmations",
+    "method": "POST",
+    "actual_path": "/api/v1/receipts/{id}/confirmations",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; controlled scanner/OCR",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "C06",
+    "proposed_path": "/v1/receipts/{id}/reversals",
+    "method": "POST",
+    "actual_path": "/api/v1/receipts/{id}/reversals",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; controlled scanner/OCR",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "C07",
+    "proposed_path": "/v1/receipts/{id}/content",
+    "method": "GET",
+    "actual_path": "/api/v1/receipts/{id}/content",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; controlled scanner/OCR",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "C08",
+    "proposed_path": "/v1/receipts/{id}/ocr-retries",
+    "method": "POST",
+    "actual_path": "/api/v1/receipts/{id}/ocr-retries",
+    "status": "External dependency required",
+    "evidence": "tests/test_books.py, test_books_workflows.py; controlled scanner/OCR",
+    "notes": "Retry lifecycle works; scanner/OCR provider required for extraction success; manual review works independently"
+  },
+  {
+    "id": "D01",
+    "proposed_path": "/v1/statements",
+    "method": "POST",
+    "actual_path": "/api/v1/statements",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; canonical CSV only",
+    "notes": "Usable canonical CSV workflow; native Uber/Bolt PDF templates remain blocked on representative files and parser specification"
+  },
+  {
+    "id": "D02",
+    "proposed_path": "/v1/statements",
+    "method": "GET",
+    "actual_path": "/api/v1/statements",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; canonical CSV only",
+    "notes": "Usable canonical CSV workflow; native Uber/Bolt PDF templates remain blocked on representative files and parser specification"
+  },
+  {
+    "id": "D03",
+    "proposed_path": "/v1/statements/{id}",
+    "method": "GET",
+    "actual_path": "/api/v1/statements/{id}",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; canonical CSV only",
+    "notes": "Usable canonical CSV workflow; native Uber/Bolt PDF templates remain blocked on representative files and parser specification"
+  },
+  {
+    "id": "D04",
+    "proposed_path": "/v1/statements/{id}/imports",
+    "method": "POST",
+    "actual_path": "/api/v1/statements/{id}/imports",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; canonical CSV only",
+    "notes": "Usable canonical CSV workflow; native Uber/Bolt PDF templates remain blocked on representative files and parser specification"
+  },
+  {
+    "id": "D05",
+    "proposed_path": "/v1/statements/{id}/content",
+    "method": "GET",
+    "actual_path": "/api/v1/statements/{id}/content",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; canonical CSV only",
+    "notes": "Usable canonical CSV workflow; native Uber/Bolt PDF templates remain blocked on representative files and parser specification"
+  },
+  {
+    "id": "Q01",
+    "proposed_path": "/v1/reconciliations",
+    "method": "GET",
+    "actual_path": "/api/v1/reconciliations",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; both resolution modes",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "Q02",
+    "proposed_path": "/v1/reconciliations/{id}",
+    "method": "GET",
+    "actual_path": "/api/v1/reconciliations/{id}",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; both resolution modes",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "Q03",
+    "proposed_path": "/v1/reconciliations/{id}/resolutions",
+    "method": "POST",
+    "actual_path": "/api/v1/reconciliations/{id}/resolutions",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; both resolution modes",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "Q04",
+    "proposed_path": "/v1/reconciliations/{id}/reversals",
+    "method": "POST",
+    "actual_path": "/api/v1/reconciliations/{id}/reversals",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; both resolution modes",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "M01",
+    "proposed_path": "/v1/mileage-logs",
+    "method": "GET",
+    "actual_path": "/api/v1/mileage-logs",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "M02",
+    "proposed_path": "/v1/mileage-logs",
+    "method": "POST",
+    "actual_path": "/api/v1/mileage-logs",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "M03",
+    "proposed_path": "/v1/mileage-logs/{id}",
+    "method": "PATCH",
+    "actual_path": "/api/v1/mileage-logs/{id}",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "M04",
+    "proposed_path": "/v1/mileage-logs/{id}",
+    "method": "DELETE",
+    "actual_path": "/api/v1/mileage-logs/{id}",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "T01",
+    "proposed_path": "/v1/tax/estimate",
+    "method": "GET",
+    "actual_path": "/api/v1/tax/estimate",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_integrations.py, test_books_workflows.py; official source registry",
+    "notes": "2025-26/2026-27 estimates, declared simplified tax scope; no assessed-liability or full-return claim"
+  },
+  {
+    "id": "T02",
+    "proposed_path": "/v1/tax/forecast",
+    "method": "GET",
+    "actual_path": "/api/v1/tax/forecast",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_integrations.py, test_books_workflows.py; official source registry",
+    "notes": "2025-26/2026-27 estimates, declared simplified tax scope; no assessed-liability or full-return claim"
+  },
+  {
+    "id": "T03",
+    "proposed_path": "/v1/tax/deduction-comparison",
+    "method": "GET",
+    "actual_path": "/api/v1/tax/deduction-comparison",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_integrations.py, test_books_workflows.py; official source registry",
+    "notes": "2025-26/2026-27 estimates, declared simplified tax scope; no assessed-liability or full-return claim"
+  },
+  {
+    "id": "T04",
+    "proposed_path": "/v1/tax/payment-timeline",
+    "method": "GET",
+    "actual_path": "/api/v1/tax/payment-timeline",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_integrations.py, test_books_workflows.py; official source registry",
+    "notes": "2025-26/2026-27 estimates, declared simplified tax scope; no assessed-liability or full-return claim"
+  },
+  {
+    "id": "T05",
+    "proposed_path": "/v1/tax/rules",
+    "method": "GET",
+    "actual_path": "/api/v1/tax/rules",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_integrations.py, test_books_workflows.py; official source registry",
+    "notes": "2025-26/2026-27 estimates, declared simplified tax scope; no assessed-liability or full-return claim"
+  },
+  {
+    "id": "K01",
+    "proposed_path": "/v1/tax-pot",
+    "method": "GET",
+    "actual_path": "/api/v1/tax-pot",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "K02",
+    "proposed_path": "/v1/tax-pot/entries",
+    "method": "POST",
+    "actual_path": "/api/v1/tax-pot/entries",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "K03",
+    "proposed_path": "/v1/tax-pot/entries/{id}/reversals",
+    "method": "POST",
+    "actual_path": "/api/v1/tax-pot/entries/{id}/reversals",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "N01",
+    "proposed_path": "/v1/notifications",
+    "method": "GET",
+    "actual_path": "/api/v1/notifications",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_workflows.py; in-app feed only",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "N02",
+    "proposed_path": "/v1/notifications/{id}",
+    "method": "PATCH",
+    "actual_path": "/api/v1/notifications/{id}",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_workflows.py; in-app feed only",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "N03",
+    "proposed_path": "/v1/notifications/read-all",
+    "method": "POST",
+    "actual_path": "/api/v1/notifications/read-all",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_workflows.py; in-app feed only",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "N04",
+    "proposed_path": "/v1/deadlines",
+    "method": "GET",
+    "actual_path": "/api/v1/deadlines",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_workflows.py; in-app feed only",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "E01",
+    "proposed_path": "/v1/exports",
+    "method": "POST",
+    "actual_path": "/api/v1/exports",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; real CSV/PDF/ZIP output",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "E02",
+    "proposed_path": "/v1/exports/{id}",
+    "method": "GET",
+    "actual_path": "/api/v1/exports/{id}",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; real CSV/PDF/ZIP output",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "E03",
+    "proposed_path": "/v1/exports/{id}/download",
+    "method": "GET",
+    "actual_path": "/api/v1/exports/{id}/download",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books.py, test_books_workflows.py; real CSV/PDF/ZIP output",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "H01",
+    "proposed_path": "/v1/accountant-requests",
+    "method": "POST",
+    "actual_path": "/api/v1/accountant-requests",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_workflows.py; request recording, no delivery claim",
+    "notes": "Verified recipient configuration and consent required; records requested/delivered=false only"
+  },
+  {
+    "id": "H02",
+    "proposed_path": "/v1/accountant-requests/{id}",
+    "method": "GET",
+    "actual_path": "/api/v1/accountant-requests/{id}",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_workflows.py; request recording, no delivery claim",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "S01",
+    "proposed_path": "/v1/subscription-plans",
+    "method": "GET",
+    "actual_path": "/api/v1/subscription-plans",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_integrations.py; configured trial policy, disabled billing boundary",
+    "notes": "Empty catalog/no subscription by default; entitlements follow approved configured offers and verified events"
+  },
+  {
+    "id": "S02",
+    "proposed_path": "/v1/me/subscription",
+    "method": "GET",
+    "actual_path": "/api/v1/me/subscription",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_integrations.py; configured trial policy, disabled billing boundary",
+    "notes": "Empty catalog/no subscription by default; entitlements follow approved configured offers and verified events"
+  },
+  {
+    "id": "S03",
+    "proposed_path": "/v1/me/subscription/trial",
+    "method": "POST",
+    "actual_path": "/api/v1/me/subscription/trial",
+    "status": "External dependency required",
+    "evidence": "tests/test_books_integrations.py; configured trial policy, disabled billing boundary",
+    "notes": "Trial lifecycle tested with synthetic approved offer; real price/terms/cohort policy must be supplied"
+  },
+  {
+    "id": "S04",
+    "proposed_path": "/v1/billing/webhooks/{provider}",
+    "method": "POST",
+    "actual_path": "/api/v1/billing/webhooks/{provider_name}",
+    "status": "External dependency required",
+    "evidence": "tests/test_books_integrations.py; configured trial policy, disabled billing boundary",
+    "notes": "Selected billing provider/signature protocol required; unavailable returns 503; never acknowledges unverified events"
+  },
+  {
+    "id": "S05",
+    "proposed_path": "/v1/me/subscription/checkout",
+    "method": "POST",
+    "actual_path": "/api/v1/me/subscription/checkout",
+    "status": "External dependency required",
+    "evidence": "tests/test_books_integrations.py; configured trial policy, disabled billing boundary",
+    "notes": "Selected billing provider/signature protocol required; unavailable returns 503; never acknowledges unverified events"
+  },
+  {
+    "id": "S06",
+    "proposed_path": "/v1/me/subscription/cancellation",
+    "method": "POST",
+    "actual_path": "/api/v1/me/subscription/cancellation",
+    "status": "External dependency required",
+    "evidence": "tests/test_books_integrations.py; configured trial policy, disabled billing boundary",
+    "notes": "Selected billing provider/signature protocol required; unavailable returns 503; never acknowledges unverified events"
+  },
+  {
+    "id": "U01",
+    "proposed_path": "/v1/mtd/eligibility",
+    "method": "GET",
+    "actual_path": "/api/v1/mtd/eligibility",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_integrations.py; immutable preview, durable outbox, controlled acknowledgement/timeout",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "U02",
+    "proposed_path": "/v1/mtd/authorizations",
+    "method": "POST",
+    "actual_path": "/api/v1/mtd/authorizations",
+    "status": "External dependency required",
+    "evidence": "tests/test_books_integrations.py; immutable preview, durable outbox, controlled acknowledgement/timeout",
+    "notes": "Internal HMRC contracts/outbox implemented and controlled-tested; live OAuth, obligation mapping, provider worker, recognition and fraud headers required"
+  },
+  {
+    "id": "U03",
+    "proposed_path": "/v1/mtd/oauth/callback",
+    "method": "GET",
+    "actual_path": "/api/v1/mtd/oauth/callback",
+    "status": "External dependency required",
+    "evidence": "tests/test_books_integrations.py; immutable preview, durable outbox, controlled acknowledgement/timeout",
+    "notes": "Internal HMRC contracts/outbox implemented and controlled-tested; live OAuth, obligation mapping, provider worker, recognition and fraud headers required"
+  },
+  {
+    "id": "U04",
+    "proposed_path": "/v1/mtd/businesses",
+    "method": "GET",
+    "actual_path": "/api/v1/mtd/businesses",
+    "status": "External dependency required",
+    "evidence": "tests/test_books_integrations.py; immutable preview, durable outbox, controlled acknowledgement/timeout",
+    "notes": "Internal HMRC contracts/outbox implemented and controlled-tested; live OAuth, obligation mapping, provider worker, recognition and fraud headers required"
+  },
+  {
+    "id": "U05",
+    "proposed_path": "/v1/mtd/obligations",
+    "method": "GET",
+    "actual_path": "/api/v1/mtd/obligations",
+    "status": "External dependency required",
+    "evidence": "tests/test_books_integrations.py; immutable preview, durable outbox, controlled acknowledgement/timeout",
+    "notes": "Internal HMRC contracts/outbox implemented and controlled-tested; live OAuth, obligation mapping, provider worker, recognition and fraud headers required"
+  },
+  {
+    "id": "U06",
+    "proposed_path": "/v1/mtd/previews",
+    "method": "POST",
+    "actual_path": "/api/v1/mtd/previews",
+    "status": "External dependency required",
+    "evidence": "tests/test_books_integrations.py; immutable preview, durable outbox, controlled acknowledgement/timeout",
+    "notes": "Internal HMRC contracts/outbox implemented and controlled-tested; live OAuth, obligation mapping, provider worker, recognition and fraud headers required"
+  },
+  {
+    "id": "U07",
+    "proposed_path": "/v1/mtd/updates",
+    "method": "POST",
+    "actual_path": "/api/v1/mtd/updates",
+    "status": "External dependency required",
+    "evidence": "tests/test_books_integrations.py; immutable preview, durable outbox, controlled acknowledgement/timeout",
+    "notes": "Internal HMRC contracts/outbox implemented and controlled-tested; live OAuth, obligation mapping, provider worker, recognition and fraud headers required"
+  },
+  {
+    "id": "U08",
+    "proposed_path": "/v1/mtd/updates/{id}",
+    "method": "GET",
+    "actual_path": "/api/v1/mtd/updates/{id}",
+    "status": "External dependency required",
+    "evidence": "tests/test_books_integrations.py; immutable preview, durable outbox, controlled acknowledgement/timeout",
+    "notes": "Internal HMRC contracts/outbox implemented and controlled-tested; live OAuth, obligation mapping, provider worker, recognition and fraud headers required"
+  },
+  {
+    "id": "U09",
+    "proposed_path": "/v1/mtd/updates/{id}/confirmation",
+    "method": "GET",
+    "actual_path": "/api/v1/mtd/updates/{id}/confirmation",
+    "status": "External dependency required",
+    "evidence": "tests/test_books_integrations.py; immutable preview, durable outbox, controlled acknowledgement/timeout",
+    "notes": "Internal HMRC contracts/outbox implemented and controlled-tested; live OAuth, obligation mapping, provider worker, recognition and fraud headers required"
+  },
+  {
+    "id": "U10",
+    "proposed_path": "/v1/mtd/updates",
+    "method": "GET",
+    "actual_path": "/api/v1/mtd/updates",
+    "status": "External dependency required",
+    "evidence": "tests/test_books_integrations.py; immutable preview, durable outbox, controlled acknowledgement/timeout",
+    "notes": "Internal HMRC contracts/outbox implemented and controlled-tested; live OAuth, obligation mapping, provider worker, recognition and fraud headers required"
+  },
+  {
+    "id": "B01",
+    "proposed_path": "/v1/assistant/conversations",
+    "method": "POST",
+    "actual_path": "/api/v1/assistant/conversations",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_integrations.py; opt-in context, failed-provider persistence",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  },
+  {
+    "id": "B02",
+    "proposed_path": "/v1/assistant/conversations/{id}/messages",
+    "method": "POST",
+    "actual_path": "/api/v1/assistant/conversations/{id}/messages",
+    "status": "External dependency required",
+    "evidence": "tests/test_books_integrations.py; opt-in context, failed-provider persistence",
+    "notes": "Assistant adapter/consent policy required; absent provider returns 503, provider failure persists failed outcome"
+  },
+  {
+    "id": "B03",
+    "proposed_path": "/v1/assistant/conversations/{id}/messages",
+    "method": "GET",
+    "actual_path": "/api/v1/assistant/conversations/{id}/messages",
+    "status": "Existing and verified",
+    "evidence": "tests/test_books_integrations.py; opt-in context, failed-provider persistence",
+    "notes": "Implemented internal contract; see OpenAPI and workflow tests"
+  }
+]

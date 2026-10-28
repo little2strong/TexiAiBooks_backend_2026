@@ -1,4 +1,7 @@
-# TexiAiBooks backend — প্রথম milestone
+# TaxiAiBooks backend
+
+> **Backend implementation update (27 October 2026):** Canonical bookkeeping, profiles/onboarding, vehicle/mileage rules, receipt and CSV-statement workflows, reconciliation, tax estimates, reports, private exports and durable jobs are implemented alongside existing authentication and expense compatibility. Start with [the implementation status](docs/BACKEND_IMPLEMENTATION_STATUS.md), [actual API contracts](docs/ACTUAL_API_CONTRACTS.md), [Flutter handoff](docs/FRONTEND_INTEGRATION_HANDOFF.md) and [runbook](docs/BACKEND_RUNBOOK.md). Live providers and native platform PDF formats have explicit dependencies; no real billing or HMRC acceptance is claimed.
+
 
 > **Phase 02 update (26 October 2026):** Authentication now includes revocable device sessions, rotating hashed refresh credentials, password recovery/change, profile updates, shared rate limits, security events and configurable Google/Apple ID-token validation. Read [docs/AUTH_API.md](docs/AUTH_API.md), [the audit](docs/BACKEND_AUDIT_REPORT.md) and [the completion report](docs/PHASE_02_COMPLETION_REPORT.md) for current contracts and external configuration. Google/Apple login, SMTP and SMS live verification remain pending. Existing `.env` is preserved; new installations default to 15-minute access tokens. Apply the additive migration and log in again after upgrading.
 
@@ -227,4 +230,4 @@ docker compose up -d --wait db
 | `scripts/setup_env.py` | একবার random local `.env` তৈরি |
 | `tests/` | Independent ও isolated PostgreSQL tests |
 
-Income tracking, receipts, mileage, tax estimates, AI, subscriptions, accountant handoff ও production deployment এই implementation-এর বাইরে। Phase 02-এ refresh/session security, password recovery এবং configurable SMTP/provider validation যোগ হয়েছে; live SMTP, SMS, Google ও Apple verification বাকি। কোনো tax rule যোগ করা হয়নি।
+The 27 October backend implementation extends this original setup guide. See [the current status](docs/BACKEND_IMPLEMENTATION_STATUS.md) for completed bookkeeping/tax/job workflows and explicit provider/product dependencies, and [the runbook](docs/BACKEND_RUNBOOK.md) for API/worker/Compose operation. Live integrations and production readiness require the listed external configuration.

@@ -44,13 +44,13 @@ def login(form: Annotated[OAuth2PasswordRequestForm, Depends()], session: Sessio
     return new_session(session, user, settings, device_name)
 
 
-@router.post("/refresh", response_model=Token)
+@router.post("/refresh", response_model=Token, operation_id="A04")
 def refresh(data: RefreshRequest, session: SessionDep, settings: SettingsDep, request: Request):
     rate_limit(session, settings, request, "refresh", ip_limit=120)
     return rotate_refresh(session, data.refresh_token.get_secret_value(), settings)
 
 
-@router.post("/logout", status_code=204)
+@router.post("/logout", status_code=204, operation_id="A05")
 def logout(auth: CurrentAuth, session: SessionDep):
     lock_user(session, auth.user.id)
     device = session.get(DeviceSession, auth.device.id, populate_existing=True)
@@ -131,7 +131,7 @@ def provider_challenge(data: ProviderChallenge, session: SessionDep, settings: S
     return create_identity_challenge(session, data.provider, settings)
 
 
-@router.post("/providers/{provider}", response_model=Token)
+@router.post("/providers/{provider}", response_model=Token, operation_id="A03")
 def identity_login(provider: Literal["google", "apple"], data: ProviderLogin,
                    session: SessionDep, settings: SettingsDep, request: Request):
     rate_limit(session, settings, request, "provider_login", ip_limit=30)
