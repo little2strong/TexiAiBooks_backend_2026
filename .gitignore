@@ -11,4 +11,10 @@ htmlcov/
 .idea/
 .vscode/
 *.log
+node_modules/
+dist/
+playwright-report/
+test-results/
+*.tsbuildinfo
+.playwright-mcp/
 

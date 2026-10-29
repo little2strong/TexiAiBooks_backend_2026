@@ -1,5 +1,14 @@
 name: texiaibooks
 services:
+  accountant-panel:
+    build: ./accountant-panel
+    profiles: ["panel"]
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      - api
+    restart: unless-stopped
+
   migrate:
     build: .
     env_file: .env

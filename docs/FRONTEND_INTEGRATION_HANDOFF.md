@@ -1,5 +1,7 @@
 # Flutter integration handoff
 
+29 October addendum: the [separate accountant React panel](../accountant-panel/README.md) now implements requested screens 1–4 through [additive staff contracts](ACCOUNTANT_PANEL_CONTRACTS.md). Flutter remains unchanged. `POST /accountant-requests` additionally accepts an optional `tax_year`; an attached export must match it. New owner-scoped `POST /me/accountant-messages/search` and `POST /me/accountant-messages` expose the human accountant thread. Internal notes/tickets never appear in that driver thread. Staff handoff status is operational review state and does not imply actual HMRC delivery.
+
 Implementation date: 27 October 2026 (Asia/Dhaka). Flutter code was not changed. The backend uses `/api/v1`, not the proposed `/v1`. All 93 proposed IDs are mapped to actual methods/paths and explicit dependencies in [ACTUAL_API_CONTRACTS.md](ACTUAL_API_CONTRACTS.md). [openapi.json](openapi.json) is the generated schema; [operation_coverage.json](operation_coverage.json) is the machine-readable coverage inventory. Endpoint registration does not mean an external provider is operational.
 
 ## Authentication and startup

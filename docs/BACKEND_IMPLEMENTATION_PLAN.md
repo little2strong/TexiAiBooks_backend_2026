@@ -1,5 +1,7 @@
 # Backend implementation plan
 
+29 October addendum: the accountant panel’s first delivery implements screens 1–4 (login/2FA, dashboard, handoffs, Driver 360) with additive, role-scoped staff APIs. Stop before screens 5–7 as requested. Contracts, setup and the deferred endpoint table are in [the panel README](../accountant-panel/README.md) and [staff contracts](ACCOUNTANT_PANEL_CONTRACTS.md). The phase plan below remains the original driver-backend plan.
+
 Proceed through phases 0?10 in order, without routine approval stops. Existing password and provider contracts stay usable. New contracts use /api/v1 and operation IDs from the proposal. Migrations are additive and validated on disposable PostgreSQL only.
 
 1. Audit source, generated OpenAPI, existing tests and all twelve analysis documents. Record each operation and dependency.

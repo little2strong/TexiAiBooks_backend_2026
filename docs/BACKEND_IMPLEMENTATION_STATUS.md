@@ -1,5 +1,16 @@
 # Backend implementation status
 
+29 October addendum: a separate accountant web panel and additive staff APIs now implement requested screens 1–4. See [the panel README](../accountant-panel/README.md) and [staff contract table](ACCOUNTANT_PANEL_CONTRACTS.md). Migration `0006` adds staff/team membership, assignments, handoff state, human messages/notes, audit events and private saved views. Current OpenAPI has **152 operations**; the original 93-ID coverage classification below remains about driver requirements. Original counts below describe the 27 October checkpoint, not completion of all accountant/admin screens. Existing tax/provider limitations remain.
+
+## Accountant panel verification — 29 October 2026
+
+- Complete backend suite checkpoint: **230 passed, 1 skipped**, with the existing Starlette/TestClient deprecation warning. The skipped test is the explicitly opt-in browser harness, run successfully separately. Final staff privacy checks passed all **14 staff tests**; the separate staff OpenAPI bearer scheme was then checked by two targeted authentication/isolation cases.
+- Frontend: **6 unit tests passed**, strict TypeScript check and production Vite build passed. All **4 live Playwright scenarios passed** against a fresh disposable PostgreSQL/API, including authenticator login, actual driver scope, bulk assignment by keyboard, every Driver 360 tab, audited identifier reveal, draft correction/receipt confirmation/exact reversal, support read-only boundaries, internal entries, private saved views and complete filtered CSV.
+- Axe WCAG A/AA checks passed on the dashboard, handoff queue, receipt drawer and tablet directory in light/dark modes. These automated checks supplement keyboard scenarios; they are not a claim of an independent accessibility certification.
+- Separate panel Docker image build, Compose configuration validation and Nginx syntax check passed. Python compile, dependency consistency and normal Git whitespace checks passed. Vite emits a bundle-size advisory; the build succeeds.
+- Migration upgrade-to-head and SQLAlchemy/Alembic model-drift checks passed in the disposable PostgreSQL fixtures. Migration `0006` adds seven tables (35 total). No development/user database was migrated, no live staff identity was provisioned, and no real message, payment or filing was sent. Apply the migration and provision staff explicitly before first use.
+- All screen 5–7 work remains deferred: full return checklist/adjustments/sign-off workflow, dedicated AI feedback UI, user/role and system/rate management, subscription administration and GDPR request handling. Human messages are durable but Flutter chat/push/email integration remains separate. Existing provider and advanced-tax limitations below still apply.
+
 Implementation date: 27 October 2026 (Asia/Dhaka). Backend-only changes; no Flutter files changed, no development/user database reset or migrated, and no real external messages, payments or tax filings sent. The original isolated HEAD baseline passed **180 tests** on disposable PostgreSQL. All 93 proposed operation IDs are accounted for; registration of integration routes is not counted as live integration completion.
 
 ## Coverage

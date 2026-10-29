@@ -8,3 +8,7 @@ __pycache__
 .pytest_cache
 *.log
 .pytest-*.txt
+accountant-panel/node_modules
+accountant-panel/dist
+accountant-panel/test-results
+.playwright-mcp

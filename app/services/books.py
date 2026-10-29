@@ -64,7 +64,7 @@ def rows(db, model, owner):
 
 def wire(row):
     result = {c.key: getattr(row, c.key) for c in inspect(type(row)).columns
-              if c.key not in {"owner_id", "identifiers", "content", "destination", "code_hash", "phone_hash"}}
+              if c.key not in {"owner_id", "identifiers", "content", "destination", "code_hash", "phone_hash", "totp_secret"}}
     # Decimal wire values are strings, money remains integers.
     return jsonable_encoder(result, custom_encoder={Decimal: lambda v: format(v, ".2f")})
 
@@ -90,13 +90,20 @@ def write(db, user, request, key, payload, operation):
         device = db.get(DeviceSession, request.state.device_id, populate_existing=True)
         if device is None or device.revoked_at is not None or device.expires_at <= utc_now():
             raise HTTPException(401, "Session is no longer active")
-    fingerprint = digest([request.method, request.url.path, str(request.url.query), payload])
+    staff_context = getattr(request.state, "staff_audit", None)
+    actor = str(staff_context["staff"].id) if staff_context else None
+    fingerprint = digest([request.method, request.url.path, str(request.url.query), payload] +
+                         ([actor, staff_context.get("reason")] if actor else []))
     previous = db.scalar(rows(db, Idempotency, user.id).where(Idempotency.request_key == key))
     if previous:
         if not hmac.compare_digest(previous.digest, fingerprint):
             raise HTTPException(409, "Idempotency key was used for a different request")
         return previous.response
     result = jsonable_encoder(operation(), custom_encoder={Decimal: lambda v: format(v, ".2f")})
+    if staff_context:
+        from app.services.staff import add_audit
+        add_audit(db, staff_context["staff"], staff_context["action"], staff_context["driver_id"],
+            before=staff_context["before"], after={"result": result, "reason": staff_context.get("reason")})
     db.add(Idempotency(owner_id=user.id, request_key=key, digest=fingerprint, response=result))
     db.commit()
     return result

@@ -1,0 +1,22 @@
+import type { Staff, VerifyResult } from '../api/types';
+
+let current: { token: string; staff: Staff; expiresAt: number } | null = null;
+const listeners = new Set<() => void>();
+let expiryTimer: ReturnType<typeof setTimeout> | undefined;
+
+export const session = {
+  get: () => current,
+  token: () => current && current.expiresAt > Date.now() ? current.token : null,
+  start: (result: VerifyResult) => {
+    clearTimeout(expiryTimer);
+    current = { token: result.access_token, staff: result.staff, expiresAt: Date.now() + result.expires_in * 1000 };
+    expiryTimer = setTimeout(() => session.end(), result.expires_in * 1000);
+    listeners.forEach(listener => listener());
+  },
+  end: () => {
+    clearTimeout(expiryTimer);
+    current = null;
+    listeners.forEach(listener => listener());
+  },
+  subscribe: (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; },
+};

@@ -110,15 +110,23 @@ def accountant(data: AccountantInput,user: CurrentUser,db: SessionDep,settings: 
         if data.recipient_reference not in settings.accountant_recipients:
             raise HTTPException(422,"Select a configured verified accountant recipient")
         if data.kind=="books_handoff" and not data.export_id: raise HTTPException(422,"Books handoff requires an export")
+        year = data.tax_year
+        if year: tax_dates(year)
         if data.export_id:
             export=owned(db,Export,user.id,data.export_id)
+            if year and year != export.tax_year: raise HTTPException(422,"Handoff year must match the export")
+            year = export.tax_year
             if not export_wire(db,export)["download_ready"]: raise HTTPException(409,"Export must be ready and unexpired")
         row=SupportRecord(owner_id=user.id,kind="accountant_request",data={**data.model_dump(mode="json"),
             "status":"requested","delivered":False})
         db.add(row)
         history(db,row,"consented_request")
+        from app.models.staff import AccountantHandoff
+        db.add(AccountantHandoff(id=row.id, driver_id=user.id, tax_year=year))
         return {"id":row.id,**row.data,"created_at":row.created_at}
-    return write(db,user,request,key,data.model_dump(mode="json"),apply)
+    # Preserve pre-panel idempotency fingerprints when the optional year is absent.
+    payload=data.model_dump(mode="json",exclude={"tax_year"} if data.tax_year is None else set())
+    return write(db,user,request,key,payload,apply)
 
 
 @router.get("/accountant-requests/{id}",operation_id="H02")

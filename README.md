@@ -1,5 +1,7 @@
 # TaxiAiBooks backend
 
+> **Accountant panel (29 October 2026):** The separate [React accountant workspace](accountant-panel/README.md) implements login/2FA, dashboard, handoff queue and Driver 360. It includes additive staff/team permissions and audited access over the existing ledger. Review [staff contracts](docs/ACCOUNTANT_PANEL_CONTRACTS.md), apply migration `0006`, provision a staff account, and follow the panel README to run it. The optional Compose profile is `panel`. Tax-return workspace, dedicated AI review and admin configuration/GDPR screens remain the next delivery.
+
 > **Backend implementation update (27 October 2026):** Canonical bookkeeping, profiles/onboarding, vehicle/mileage rules, receipt and CSV-statement workflows, reconciliation, tax estimates, reports, private exports and durable jobs are implemented alongside existing authentication and expense compatibility. Start with [the implementation status](docs/BACKEND_IMPLEMENTATION_STATUS.md), [actual API contracts](docs/ACTUAL_API_CONTRACTS.md), [Flutter handoff](docs/FRONTEND_INTEGRATION_HANDOFF.md) and [runbook](docs/BACKEND_RUNBOOK.md). Live providers and native platform PDF formats have explicit dependencies; no real billing or HMRC acceptance is claimed.
 
 

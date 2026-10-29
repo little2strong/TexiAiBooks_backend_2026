@@ -289,6 +289,10 @@ def process_one(factory,scanner=None,ocr=None,parser=None):
                         resource.period_end=max(date.fromisoformat(p["period_end"]) for p in payouts)
                         resource.processing_status="ready"
                     resource.version+=1
+                elif job.kind=="private_scan":
+                    file=owned(db,PrivateFile,job.owner_id,job.resource_id)
+                    scanner.scan(file.content)
+                    file.scan_status="clean"
                 elif job.kind=="export":
                     resource=owned(db,Export,job.owner_id,job.resource_id)
                     content=csv_export(resource.snapshot) if resource.format=="csv" else pdf_export(resource.snapshot,resource.tax_year)

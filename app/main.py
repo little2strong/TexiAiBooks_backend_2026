@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.api import auth, expenses, health, users, profiles, ledger, reports, documents, reconciliation, support, integrations, phone_auth
+from app.api import auth, expenses, health, users, profiles, ledger, reports, documents, reconciliation, support, integrations, phone_auth, staff
 from app.core.config import Settings, get_settings
 from app.db import build_engine
 from app.services.delivery import DisabledSMS, SMTPResetDelivery
@@ -50,7 +50,7 @@ def create_app(
     application.include_router(health.router)
     for router in (auth.router, users.router, expenses.router, profiles.router, ledger.router,
                    reports.router, documents.router, reconciliation.router, support.router,
-                   integrations.router, phone_auth.router):
+                   integrations.router, phone_auth.router, staff.router, staff.driver_router):
         application.include_router(router, prefix="/api/v1")
 
     @application.exception_handler(OperationalError)

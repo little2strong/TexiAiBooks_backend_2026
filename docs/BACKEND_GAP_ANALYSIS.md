@@ -1,5 +1,7 @@
 # Backend gap analysis
 
+29 October addendum: accountant web screens 1–4 and their staff access APIs are covered by [ACCOUNTANT_PANEL_CONTRACTS.md](ACCOUNTANT_PANEL_CONTRACTS.md) and [the panel README](../accountant-panel/README.md). Dedicated return review, AI feedback and admin/GDPR screens remain subsequent delivery. Earlier gap findings below describe the original driver-app audit.
+
 Audit date: 27 October 2026 (Asia/Dhaka). Baseline working tree clean. No applicable AGENTS.md found in repository or parents. All twelve imported documents inspected; operation inventory preserved in proposed_operations.json. Requirements remain proposals, not existing contracts.
 
 Existing stack: Python 3.12 virtual environment; FastAPI 0.162.0, SQLAlchemy 2.0.55, Pydantic 2.14.1, Alembic 1.20.1, PostgreSQL 16 via Docker. Two existing migrations. Per-request sessions close/rollback on error. Existing expense soft deletion/owner isolation and password auth retained. Current error envelope is detail, including redacted validation arrays; preserve it.

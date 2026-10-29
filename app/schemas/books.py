@@ -330,6 +330,7 @@ class ExportInput(Body):
 
 class AccountantInput(Body):
     kind: Literal["books_handoff", "marriage_allowance", "filing_question"]
+    tax_year: str | None = Field(default=None, pattern=r"^20\d{2}-\d{2}$")
     export_id: UUID | None = None
     recipient_reference: str = Field(min_length=1, max_length=200)
     message: str | None = Field(default=None, max_length=2000)
