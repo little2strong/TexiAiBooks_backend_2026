@@ -1,6 +1,6 @@
 # TaxiAiBooks accountant workspace
 
-Separate React + TypeScript + Vite application using headless Refine, Ant Design and TanStack Table. Implements the requested **screens 1–4**: password/TOTP login and recovery, scoped dashboard, handoff queue with bulk assignment, driver directory and Driver 360 with all requested tabs. Screens 5–7 intentionally stop at this delivery boundary.
+Separate React + TypeScript + Vite application using headless Refine, Ant Design and TanStack Table. Implements the requested **screens 1–4**: email/password login and recovery, scoped dashboard, handoff queue with bulk assignment, driver directory and Driver 360 with all requested tabs. Screens 5–7 intentionally stop at this delivery boundary.
 
 ## Run locally
 
@@ -12,7 +12,7 @@ Requires Node **22.12+**, the existing Python environment, PostgreSQL and backen
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-access-log
 ```
 
-Run migrations against the intended database after reviewing migration `0006`. Provisioning asks for the password privately and shows a one-time authenticator enrollment URI. Use the same CLI with `--role accountant --team "Your team"` or `--role senior_accountant --team "Your team"`. Staff identities must be new; existing driver identities are never implicitly promoted. There are no default credentials or demo records. An existing `IDENTIFIER_ENCRYPTION_KEYS` ring is required for enrollment and identifier access. Back up this key ring securely.
+Run migrations against the intended database after reviewing migration `0006`. Provisioning asks for the password privately. Staff sign in directly with their email and password. Use the same CLI with `--role accountant --team "Your team"` or `--role senior_accountant --team "Your team"`. Staff identities must be new; existing driver identities are never implicitly promoted. There are no default credentials or demo records. An existing `IDENTIFIER_ENCRYPTION_KEYS` ring is required for driver identifier access; staff login does not require an authenticator or encryption key. Back up this key ring securely.
 
 In a second terminal:
 
@@ -23,13 +23,13 @@ Copy-Item .env.example .env.local
 npm run dev
 ```
 
-Open **http://127.0.0.1:5173**. Sign in with the provisioned staff email, password and authenticator code. A driver’s existing consented accountant request appears in the handoff queue; an admin can assign it to an accountant. Empty databases show empty states.
+Open **http://127.0.0.1:5173**. Sign in with the provisioned staff email and password. A driver’s existing consented accountant request appears in the handoff queue; an admin can assign it to an accountant. Empty databases show empty states.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `VITE_API_BASE_URL` | `/api/v1` | Public API base. Same-origin deployment is recommended; HTTPS required for an absolute URL. Never place secrets in Vite variables. |
 | `API_PROXY_TARGET` | `http://127.0.0.1:8000` | Local Vite dev/preview proxy destination; not exposed to browser code. |
-| Backend `IDENTIFIER_ENCRYPTION_KEYS` | Existing backend setting | Encrypts staff TOTP seeds and driver tax identifiers. |
+| Backend `IDENTIFIER_ENCRYPTION_KEYS` | Existing backend setting | Encrypts driver tax identifiers. |
 | Backend SMTP/reset settings | Existing backend settings | Real password recovery delivery. An unconfigured service reports unavailable. |
 | Backend `CLAMAV_HOST` / `CLAMAV_PORT` | Existing backend settings | Private document scanning by `python -m app.worker`. Uploaded evidence stays quarantined until clean. |
 
@@ -99,7 +99,7 @@ Validated 29 October 2026: 230-test backend suite checkpoint, six frontend unit 
 
 The workspace uses taxi amber, navy and neutral surfaces from the supplied TaxiAiBooks design brief. All runtime colors, spacing, radii and motion durations come from `src/theme/tokens.css`; `src/theme/antd-theme.ts` maps those variables into Ant Design. Accessible semantic foreground tokens accompany the supplied chart/fill colors where the defaults would fail AA contrast on tinted surfaces. Inter and JetBrains Mono are bundled locally; no font CDN is used. Lucide supplies interface icons.
 
-The `/login` front page pairs a branded receipt-to-review illustration with a focused sign-in card, visible two-step progress and a responsive mobile layout. Its styles live in `src/pages/login.css`, and `LoginShowcase` draws the workflow using HTML and icons without loading account data. Password recovery, reset and authenticator verification share the same design.
+The `/login` front page pairs a branded receipt-to-review illustration with a focused email/password sign-in card and a responsive mobile layout. Its styles live in `src/pages/login.css`, and `LoginShowcase` draws the workflow using HTML and icons without loading account data. Password recovery and reset share the same design. A successful staff password login opens the dashboard directly.
 
 Open `/styleguide` without signing in to inspect illustrative component examples in both modes: buttons, financial values, status badges, forms, table density/selection, AI confidence, Recharts, empty/loading/error states, modal/drawer motion and toast Undo. No real driver data is loaded there. This route is loaded separately from the workspace bundle. `src/theme/motion.ts` provides shared motion references, a reduced-motion hook and first-load KPI counting. CSS and chart animations respect the device's reduced-motion setting.
 

@@ -1,9 +1,4 @@
-"""Staff authorization, TOTP and projections over the existing books."""
-import base64
-import hashlib
-import hmac
-import struct
-import time
+"""Staff authorization and projections over the existing books."""
 from datetime import timedelta
 from typing import Annotated
 from uuid import UUID, uuid4
@@ -25,20 +20,6 @@ from app.services.sessions import lock_user
 
 IDLE_SECONDS = 900
 staff_bearer = HTTPBearer(auto_error=False, scheme_name="StaffBearer")
-
-
-def totp(secret: str, counter: int) -> str:
-    raw = hmac.new(base64.b32decode(secret), struct.pack(">Q", counter), hashlib.sha1).digest()
-    offset = raw[-1] & 15
-    return f"{(int.from_bytes(raw[offset:offset + 4], 'big') & 0x7fffffff) % 1000000:06d}"
-
-
-def verified_counter(secret: str, code: str, previous: int) -> int | None:
-    current = int(time.time()) // 30
-    for counter in (current, current - 1, current + 1):
-        if counter > previous and hmac.compare_digest(totp(secret, counter), code):
-            return counter
-    return None
 
 
 def identity(db, staff):

@@ -1,11 +1,8 @@
 """Explicit operator-only enrollment. Never run automatically on application startup."""
 import argparse
-import base64
 from getpass import getpass
 from pathlib import Path
-import secrets
 import sys
-from urllib.parse import quote
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -17,11 +14,10 @@ from app.db import build_engine
 from app.models import User
 from app.models.staff import StaffAccount, StaffTeam
 from app.schemas.user import normalize_email
-from app.services.vault import encrypt
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Provision an explicit staff identity and authenticator enrollment")
+    parser = argparse.ArgumentParser(description="Provision an explicit staff identity with email and password")
     parser.add_argument("--email", required=True)
     parser.add_argument("--name", required=True)
     parser.add_argument("--role", choices=["accountant", "senior_accountant", "admin", "support"], required=True)
@@ -36,8 +32,6 @@ def main():
     if not 12 <= len(password) <= 128 or password != getpass("Confirm password: "):
         parser.error("Passwords must match and contain 12–128 characters")
     settings = get_settings()
-    seed = base64.b32encode(secrets.token_bytes(20)).decode()
-    encrypted = encrypt(settings, seed)
     engine = build_engine(settings)
     try:
         with Session(engine) as db:
@@ -52,10 +46,9 @@ def main():
             db.add(user)
             db.flush()
             db.add(StaffAccount(id=user.id, name=args.name.strip(), role=args.role,
-                team_id=team.id if team else None, totp_secret=encrypted))
+                team_id=team.id if team else None, totp_secret=b""))
             db.commit()
-        print("Staff account created. Enrol the authenticator privately; this seed is shown once.")
-        print(f"otpauth://totp/{quote('TaxiAiBooks:' + email)}?secret={seed}&issuer=TaxiAiBooks&digits=6&period=30")
+        print("Staff account created. Sign in with the staff email and password.")
     finally:
         engine.dispose()
 

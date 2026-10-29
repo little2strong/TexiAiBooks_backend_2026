@@ -1,27 +1,13 @@
 import { expect, test, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { createHmac } from 'node:crypto';
-
 // Only the owned disposable-PostgreSQL harness supplies these synthetic identities.
-const seed = process.env.PANEL_TEST_TOTP_HEX;
-test.skip(!seed, 'Run through tests/test_panel_browser.py to provision isolated synthetic records.');
-
-function code() {
-  const counter = Buffer.alloc(8);
-  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000)));
-  const digest = createHmac('sha1', Buffer.from(seed!, 'hex')).update(counter).digest();
-  const offset = digest[digest.length - 1] & 15;
-  return String((digest.readUInt32BE(offset) & 0x7fffffff) % 1000000).padStart(6, '0');
-}
+test.skip(!process.env.PANEL_TEST_PASSWORD, 'Run through tests/test_panel_browser.py to provision isolated synthetic records.');
 
 async function login(page: Page, name: string) {
   await page.goto('/login');
   await page.getByLabel('Work email').fill(`${name}@browser.example`);
   await page.getByLabel('Password', { exact: true }).fill(process.env.PANEL_TEST_PASSWORD!);
-  await page.getByRole('button', { name: 'Continue securely' }).click();
-  await expect(page.getByRole('heading', { name: 'Verify it’s you' })).toBeVisible();
-  await page.getByLabel('Authentication code').fill(code());
-  await page.getByRole('button', { name: 'Verify & sign in' }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('heading', { name: /^Welcome,/ })).toBeVisible();
 }
 

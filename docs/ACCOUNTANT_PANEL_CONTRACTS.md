@@ -2,7 +2,7 @@
 
 29 October 2026. Existing driver contracts remain unchanged. Staff cannot use driver JWTs to cross account boundaries. The panel reuses the existing user password hashes, revocable device sessions, reset delivery, encryption key ring, rate limits, canonical ledger, receipt confirmation, tax rules and private file scanning. Staff JWTs have a separate audience and token type. Staff membership is provisioned explicitly; driver signup never grants a staff role.
 
-The user requested implementation following backend logic after being asked about missing staff models. Additive models: teams; staff membership referencing the existing authentication identity; one current driver assignment; handoff state linked to an actual consented accountant request; human communications; staff audit events; per-staff saved table views. Authenticator TOTP seeds are encrypted and counters prevent replay. No sample staff, passwords, drivers or financial data are installed.
+The user requested implementation following backend logic after being asked about missing staff models. Additive models: teams; staff membership referencing the existing authentication identity; one current driver assignment; handoff state linked to an actual consented accountant request; human communications; staff audit events; per-staff saved table views. Staff sign-in uses email and password and immediately creates an audited, revocable staff session; there is no authenticator step. No sample staff, passwords, drivers or financial data are installed.
 
 ## New staff endpoints
 
@@ -10,8 +10,7 @@ All paths below start `/api/v1/staff`. JSON unless stated. Protected methods req
 
 | Method | Path | Request | Response |
 | --- | --- | --- | --- |
-| POST | `/auth/login` | `{email,password}` | `{challenge_id,expires_in}`; no JWT until MFA |
-| POST | `/auth/verify` | `{challenge_id,code}` | `{access_token,expires_in,staff}` |
+| POST | `/auth/login` | `{email,password}` | `{access_token,expires_in,staff}`; direct email/password sign-in |
 | POST | `/auth/logout` | none | 204, session revoked |
 | GET | `/me` | none | `{id,name,email,role,team_id}` |
 | GET | `/config` | none | supported tax years, current year, upload limits, idle timeout |
@@ -49,8 +48,10 @@ Accountants: assigned drivers. Senior accountants: their team's drivers and same
 
 Staff reads and writes are audited on the server. Financial mutation audit and canonical effects commit together. Identifier values never enter audit payloads. Reads, downloads, searches and CSV exports record scope, actor and time without saving raw search text. No UI action marks a return filed without an actual reference; no HMRC submission is introduced.
 
-UTR searches cannot be persisted in saved views. Staff OpenAPI uses a separate `StaffBearer` scheme: complete the two-step staff login and paste its resulting bearer token when using Swagger. The driver OAuth password scheme is unchanged. Existing accountant-request idempotency fingerprints remain replayable when the new optional year is absent.
+UTR searches cannot be persisted in saved views. Staff OpenAPI uses a separate `StaffBearer` scheme: complete the email/password staff login and paste its resulting bearer token when using Swagger. The driver OAuth password scheme is unchanged. Existing accountant-request idempotency fingerprints remain replayable when the new optional year is absent.
 
 ## Explicit delivery boundary
 
 Screens 1–4 only. Tax-return workspace, dedicated AI-review screen and admin configuration/GDPR workflows (screens 5–7) remain subsequent work. Existing backend categories/rules remain authoritative; no category or tax-rate editor is introduced. AI confidence is displayed only if stored extraction supplied it; a missing confidence is shown as unavailable. No synthetic rows appear in the application.
+
+Staff authentication update: `/auth/verify` is removed. Invalid credentials, driver identities and inactive staff return the same generic 401; login rate limits, in-memory frontend credentials, separate staff JWT audience/type, audited login, 15-minute idle enforcement and logout revocation remain enforced. Legacy authenticator columns are retained for database compatibility and are unused. Staff provisioning no longer enrolls or requires an authenticator.

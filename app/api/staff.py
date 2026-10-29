@@ -1,7 +1,6 @@
 """Accountant access is explicit; driver owner endpoints keep their contracts."""
 import csv
 import io
-import secrets
 from datetime import timedelta
 from typing import Annotated
 from uuid import UUID
@@ -12,14 +11,14 @@ from sqlalchemy import func, literal, select, union_all
 from app.api import documents, reports, support
 from app.api.deps import CurrentUser, SessionDep, SettingsDep
 from app.api.profiles import Key
-from app.core.security import DUMMY_HASH, hash_secret, password_hash
-from app.models import AuthChallenge, DeviceSession, User
+from app.core.security import DUMMY_HASH, password_hash
+from app.models import DeviceSession, User
 from app.models.books import Job, Mileage, Mutation, PrivateFile, Profile, Receipt, SupportRecord, Transaction
 from app.models.common import utc_now
 from app.models.staff import AccountantHandoff, DriverAssignment, StaffAccount, StaffAudit, StaffEntry, StaffView
 from app.schemas.books import Confirmation, ReceiptPatch, Reversal, TransactionPatch
 from app.schemas.staff import (AssignmentInput, EntryInput, ExportInput, HandoffPatch, RevealInput,
-    ReviewInput, StaffLogin, StaffVerification, TableQuery, ViewInput, ViewSearch, YearInput)
+    ReviewInput, StaffLogin, StaffLoginResult, TableQuery, ViewInput, ViewSearch, YearInput)
 from app.services.auth_security import rate_limit
 from app.services.books import (CATEGORIES, SOURCES, check_version, history, owned, profile, rows,
     tax_dates, tax_year, wire, write)
@@ -27,7 +26,7 @@ from app.services.files import receipt_wire, store_file
 from app.services.ledger import mileage_total, update_transaction
 from app.services.sessions import lock_user
 from app.services.staff import (IDLE_SECONDS, StaffAuth, add_audit, driver_scope,
-    driver_search, driver_summary, identity, paginate, query_filters, require_driver, staff_token, verified_counter)
+    driver_search, driver_summary, identity, paginate, query_filters, require_driver, staff_token)
 from app.services.tax import deadlines, estimate, payment_timeline, rule_set, today
 from app.services.vault import decrypt
 
@@ -35,44 +34,18 @@ router = APIRouter(prefix="/staff", tags=["staff accountant panel"])
 driver_router = APIRouter(tags=["human accountant messages"])
 
 
-@router.post("/auth/login")
+@router.post("/auth/login", response_model=StaffLoginResult)
 def login(data: StaffLogin, db: SessionDep, settings: SettingsDep, request: Request):
     email = str(data.email).strip().lower()
     rate_limit(db, settings, request, "staff_login", email, target_limit=5)
     user = db.scalar(select(User).where(User.email == email))
-    staff = db.get(StaffAccount, user.id) if user else None
+    if user:
+        lock_user(db, user.id)
+        db.refresh(user)
+    staff = db.get(StaffAccount, user.id, populate_existing=True) if user else None
     valid = password_hash.verify(data.password.get_secret_value(), user.password_hash if user else DUMMY_HASH)
     if not valid or not staff or not staff.active:
         raise HTTPException(401, "Invalid staff credentials")
-    lock_user(db, user.id)
-    challenge = AuthChallenge(kind="staff_totp", user_id=user.id,
-        token_hash=hash_secret("staff_challenge:" + secrets.token_urlsafe(48), settings),
-        expires_at=utc_now() + timedelta(minutes=5))
-    db.add(challenge)
-    add_audit(db, staff, "login_challenge")
-    db.commit()
-    return {"challenge_id": challenge.id, "expires_in": 300}
-
-
-@router.post("/auth/verify")
-def verify(data: StaffVerification, db: SessionDep, settings: SettingsDep, request: Request):
-    rate_limit(db, settings, request, "staff_verify", str(data.challenge_id), target_limit=10)
-    challenge = db.get(AuthChallenge, data.challenge_id)
-    if not challenge or challenge.kind != "staff_totp":
-        raise HTTPException(401, "Invalid or expired challenge")
-    lock_user(db, challenge.user_id)
-    db.refresh(challenge)
-    staff = db.get(StaffAccount, challenge.user_id, populate_existing=True)
-    if not staff or not staff.active or challenge.used_at or challenge.expires_at <= utc_now() or challenge.attempts >= 5:
-        raise HTTPException(401, "Invalid or expired challenge")
-    challenge.attempts += 1
-    counter = verified_counter(decrypt(settings, staff.totp_secret), data.code, staff.last_totp_counter)
-    if counter is None:
-        add_audit(db, staff, "mfa_rejected")
-        db.commit()
-        raise HTTPException(401, "Invalid or already used authentication code")
-    challenge.used_at = utc_now()
-    staff.last_totp_counter = counter
     device = DeviceSession(user_id=staff.id, device_name="Accountant web panel", last_used_at=utc_now(),
         expires_at=utc_now() + timedelta(minutes=settings.access_token_expire_minutes))
     db.add(device)

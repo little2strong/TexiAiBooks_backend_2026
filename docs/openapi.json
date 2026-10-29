@@ -6649,46 +6649,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/StaffLoginResult"
                 }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/staff/auth/verify": {
-      "post": {
-        "tags": [
-          "staff accountant panel"
-        ],
-        "summary": "Verify",
-        "operationId": "verify_api_v1_staff_auth_verify_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StaffVerification"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
               }
             }
           },
@@ -11071,6 +11034,63 @@
         ],
         "title": "SourcesInput"
       },
+      "StaffIdentity": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "accountant",
+              "senior_accountant",
+              "admin",
+              "support"
+            ],
+            "title": "Role"
+          },
+          "team_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "email",
+          "role",
+          "team_id"
+        ],
+        "title": "StaffIdentity"
+      },
       "StaffLogin": {
         "properties": {
           "email": {
@@ -11095,26 +11115,28 @@
         ],
         "title": "StaffLogin"
       },
-      "StaffVerification": {
+      "StaffLoginResult": {
         "properties": {
-          "challenge_id": {
+          "access_token": {
             "type": "string",
-            "format": "uuid",
-            "title": "Challenge Id"
+            "title": "Access Token"
           },
-          "code": {
-            "type": "string",
-            "pattern": "^[0-9]{6}$",
-            "title": "Code"
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          },
+          "staff": {
+            "$ref": "#/components/schemas/StaffIdentity"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
-          "challenge_id",
-          "code"
+          "access_token",
+          "expires_in",
+          "staff"
         ],
-        "title": "StaffVerification"
+        "title": "StaffLoginResult"
       },
       "StatementRead": {
         "properties": {

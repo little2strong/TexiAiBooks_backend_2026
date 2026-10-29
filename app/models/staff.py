@@ -23,7 +23,8 @@ class StaffAccount(Base):
     role: Mapped[str] = mapped_column(String(24))
     team_id: Mapped[UUID | None] = mapped_column(ForeignKey("staff_teams.id"), index=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
-    totp_secret: Mapped[bytes] = mapped_column(LargeBinary)
+    # Legacy columns retained for existing databases; password login does not use them.
+    totp_secret: Mapped[bytes] = mapped_column(LargeBinary, default=b"")
     last_totp_counter: Mapped[int] = mapped_column(Integer, default=-1)
 
 

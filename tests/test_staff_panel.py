@@ -1,7 +1,4 @@
 """Staff boundary tests use the existing disposable PostgreSQL fixtures."""
-import base64
-import secrets
-import time
 from datetime import timedelta
 from uuid import UUID, uuid4
 
@@ -11,13 +8,11 @@ import pytest
 from sqlalchemy import select
 
 from app.core.security import password_hash
-from app.models import DeviceSession, User
+from app.models import AuthChallenge, DeviceSession, User
 from app.models.books import Business, PrivateFile, Receipt, SupportRecord, Transaction
 from app.models.common import utc_now
 from app.models.staff import AccountantHandoff, DriverAssignment, StaffAccount, StaffAudit, StaffEntry, StaffTeam
 from app.services.books import catalog_id
-from app.services.staff import totp
-from app.services.vault import encrypt
 
 
 def mutation(auth):
@@ -34,19 +29,16 @@ def panel(client, db_session, account):
     db_session.flush()
     members = {}
     for role in ("admin", "senior_accountant", "accountant", "support", "other"):
-        seed = base64.b32encode(secrets.token_bytes(20)).decode()
         user = User(email=f"{role}@practice.example", password_hash=password_hash.hash("staff-password-123"))
         db_session.add(user)
         db_session.flush()
         staff = StaffAccount(id=user.id, name=role.title(), role="accountant" if role == "other" else role,
-            team_id=other_team.id if role == "other" else team.id, totp_secret=encrypt(settings, seed))
+            team_id=other_team.id if role == "other" else team.id)
         db_session.add(staff)
         db_session.commit()
-        challenge = client.post("/api/v1/staff/auth/login", json={"email": user.email, "password": "staff-password-123"})
-        assert challenge.status_code == 200, challenge.text
-        result = client.post("/api/v1/staff/auth/verify", json={"challenge_id": challenge.json()["challenge_id"], "code": totp(seed, int(time.time()) // 30)})
+        result = client.post("/api/v1/staff/auth/login", json={"email": user.email, "password": "staff-password-123"})
         assert result.status_code == 200, result.text
-        members[role] = (staff, {"Authorization": "Bearer " + result.json()["access_token"]}, seed)
+        members[role] = (staff, {"Authorization": "Bearer " + result.json()["access_token"]})
     driver, driver_auth = account
     owner = UUID(driver["id"])
     db_session.add(DriverAssignment(driver_id=owner, accountant_id=members["accountant"][0].id))
@@ -66,17 +58,52 @@ def test_staff_tokens_are_separate_and_assignments_are_enforced(client, panel):
     assert client.get("/api/v1/me", headers=members["admin"][1]).status_code == 401
 
 
-def test_mfa_replay_revocation_and_server_idle_timeout(client, panel, db_session):
+def test_password_session_revocation_and_server_idle_timeout(client, panel, db_session):
     members, _, _ = panel
-    staff, auth, seed = members["accountant"]
-    challenge = client.post("/api/v1/staff/auth/login", json={"email": "accountant@practice.example", "password": "staff-password-123"}).json()
-    assert client.post("/api/v1/staff/auth/verify", json={"challenge_id": challenge["challenge_id"], "code": totp(seed, int(time.time()) // 30)}).status_code == 401
+    staff, auth = members["accountant"]
     device = db_session.scalar(select(DeviceSession).where(DeviceSession.user_id == staff.id))
     device.last_used_at = utc_now() - timedelta(minutes=16)
     db_session.commit()
     assert client.get("/api/v1/staff/me", headers=auth).status_code == 401
     assert client.post("/api/v1/staff/auth/logout", headers=members["support"][1]).status_code == 204
     assert client.get("/api/v1/staff/me", headers=members["support"][1]).status_code == 401
+
+
+def test_email_password_login_returns_audited_staff_session_without_challenge(client, panel, db_session):
+    members, _, _ = panel
+    response = client.post("/api/v1/staff/auth/login", json={"email": "ACCOUNTANT@practice.example", "password": "staff-password-123"})
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert set(data) == {"access_token", "expires_in", "staff"}
+    assert data["expires_in"] == client.app.state.settings.access_token_expire_minutes * 60
+    assert data["staff"]["id"] == str(members["accountant"][0].id)
+    assert client.get("/api/v1/staff/me", headers={"Authorization": "Bearer " + data["access_token"]}).status_code == 200
+    assert db_session.scalar(select(StaffAudit).where(StaffAudit.actor_id == members["accountant"][0].id, StaffAudit.action == "login_succeeded"))
+    assert db_session.scalar(select(AuthChallenge).where(AuthChallenge.kind == "staff_totp")) is None
+    assert client.post("/api/v1/staff/auth/verify", json={"challenge_id": str(uuid4()), "code": "000000"}).status_code == 404
+
+
+def test_password_login_rejects_invalid_credentials_and_disabled_staff(client, panel, db_session):
+    members, owner, _ = panel
+    for email, password in [("accountant@practice.example", "wrong-password"), ("missing@practice.example", "staff-password-123")]:
+        result = client.post("/api/v1/staff/auth/login", json={"email": email, "password": password})
+        assert result.status_code == 401
+        assert result.json() == {"detail": "Invalid staff credentials"}
+    driver = db_session.get(User, owner)
+    driver.password_hash = password_hash.hash("driver-test-password")
+    members["support"][0].active = False
+    db_session.commit()
+    assert client.post("/api/v1/staff/auth/login", json={"email": driver.email, "password": "driver-test-password"}).status_code == 401
+    assert client.post("/api/v1/staff/auth/login", json={"email": "support@practice.example", "password": "staff-password-123"}).status_code == 401
+
+
+def test_staff_password_login_attempts_remain_rate_limited(client):
+    payload = {"email": "unknown@practice.example", "password": "wrong-password"}
+    for _ in range(5):
+        assert client.post("/api/v1/staff/auth/login", json=payload).status_code == 401
+    result = client.post("/api/v1/staff/auth/login", json=payload)
+    assert result.status_code == 429
+    assert "Retry-After" in result.headers
 
 
 def test_consented_requests_assignment_versions_and_unknown_year(client, panel, db_session):

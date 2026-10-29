@@ -3,7 +3,6 @@
 Run: set RUN_PANEL_BROWSER=1 and run python -m pytest tests/test_panel_browser.py -q
 No development database, application provider or saved credential is used.
 """
-import base64
 import json
 import os
 from pathlib import Path
@@ -33,8 +32,6 @@ def test_live_panel_browser(postgres_engine, settings):
     build = subprocess.run([npm, "run", "build"], cwd=root / "accountant-panel", capture_output=True, text=True, timeout=120)
     assert build.returncode == 0, build.stdout + build.stderr
     settings.identifier_encryption_keys = [SecretStr(Fernet.generate_key().decode())]
-    seed_bytes = secrets.token_bytes(20)
-    seed = base64.b32encode(seed_bytes).decode()
     password = secrets.token_urlsafe(24)
     with Session(postgres_engine) as db:
         team = StaffTeam(name="Synthetic browser team")
@@ -46,7 +43,7 @@ def test_live_panel_browser(postgres_engine, settings):
         for name, role in [("admin-flow", "admin"), ("accountant-receipt", "accountant"), ("support-flow", "support"), ("admin-accessibility", "admin")]:
             user = User(email=f"{name}@browser.example", password_hash=password_hash.hash(password), display_name=name)
             db.add(user); db.flush()
-            db.add(StaffAccount(id=user.id, name=name, role=role, team_id=team.id, totp_secret=encrypt(settings, seed)))
+            db.add(StaffAccount(id=user.id, name=name, role=role, team_id=team.id))
             db.flush()
             if role == "accountant": db.add(DriverAssignment(driver_id=owner, accountant_id=user.id))
         business = Business(owner_id=owner, kind="self_employment", name="Synthetic browser business")
@@ -64,7 +61,7 @@ def test_live_panel_browser(postgres_engine, settings):
     env = dict(os.environ, POSTGRES_HOST=url.host, POSTGRES_PORT=str(url.port), POSTGRES_DB=url.database,
         POSTGRES_USER=url.username, POSTGRES_PASSWORD=url.password, JWT_SECRET_KEY=settings.jwt_secret_key.get_secret_value(),
         IDENTIFIER_ENCRYPTION_KEYS=json.dumps([key.get_secret_value() for key in settings.identifier_encryption_keys]),
-        PANEL_API_URL=f"http://127.0.0.1:{port}", PANEL_TEST_TOTP_HEX=seed_bytes.hex(), PANEL_TEST_PASSWORD=password, PANEL_TEST_DRIVER_ID=str(owner))
+        PANEL_API_URL=f"http://127.0.0.1:{port}", PANEL_TEST_PASSWORD=password, PANEL_TEST_DRIVER_ID=str(owner))
     server = subprocess.Popen([str(root / ".venv/Scripts/python.exe"), "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(port), "--no-access-log"],
         cwd=root, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)

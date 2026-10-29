@@ -122,8 +122,6 @@ async function mockWorkspace(page: Page) {
     };
     let body: unknown;
     if (path.endsWith("/auth/login"))
-      body = { challenge_id: "test-only", expires_in: 300 };
-    else if (path.endsWith("/auth/verify"))
       body = { access_token: "test-only-token", expires_in: 900, staff };
     else if (path.endsWith("/staff/me")) body = staff;
     else if (path.endsWith("/config"))
@@ -165,12 +163,11 @@ async function mockWorkspace(page: Page) {
   await page
     .getByLabel("Password", { exact: true })
     .fill("Synthetic-password-only");
-  await page.getByRole("button", { name: "Continue securely" }).click();
-  await page.getByLabel("Authentication code").fill("123456");
-  await page.getByRole("button", { name: "Verify & sign in" }).click();
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Welcome, Taylor" }),
   ).toBeVisible();
+  await expect(page.getByLabel("Authentication code")).toHaveCount(0);
 }
 
 test("workspace shell, keyboard search and user-scoped theme", async ({

@@ -1,6 +1,6 @@
 # Backend runbook
 
-For the separate accountant panel, migration `0006`, explicit staff provisioning, authenticator enrollment, optional Compose `panel` profile and browser checks, follow [accountant-panel/README.md](../accountant-panel/README.md). Staff seeds reuse `IDENTIFIER_ENCRYPTION_KEYS`. No default admin or staff account is installed. Staff tokens have a distinct audience/type; driver JWTs cannot authorize staff access.
+For the separate accountant panel, migration `0006`, explicit staff provisioning, email/password sign-in, optional Compose `panel` profile and browser checks, follow [accountant-panel/README.md](../accountant-panel/README.md). Driver tax identifiers require `IDENTIFIER_ENCRYPTION_KEYS`; staff sign-in uses email and password without an authenticator. No default admin or staff account is installed. Staff tokens have a distinct audience/type; driver JWTs cannot authorize staff access.
 
 Python 3.12, PostgreSQL 16, pinned requirements, FastAPI/SQLAlchemy 2/Pydantic 2/Alembic. Work in the existing repository. No production deployment or development database migration was performed by this implementation.
 

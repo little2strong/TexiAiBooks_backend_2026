@@ -423,49 +423,6 @@
   font-size: var(--font-table);
   line-height: 1.7;
 }
-.login-steps {
-  display: flex;
-  gap: var(--space-6);
-  list-style: none;
-  padding: 0 0 var(--space-5);
-  margin: 0 0 var(--space-6);
-  border-bottom: var(--border-width) solid var(--border);
-}
-.login-steps li {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--text-helper);
-  font-size: var(--font-caption);
-}
-.login-steps li > span {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-6);
-  height: var(--space-6);
-  border: var(--border-width) solid var(--border-strong);
-  border-radius: var(--radius-pill);
-  font-variant-numeric: tabular-nums;
-}
-.login-steps .current-step {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-.login-steps .current-step > span {
-  background: var(--brand-primary);
-  color: var(--brand-on-primary);
-  border-color: var(--brand-primary);
-}
-.login-steps .complete-step > span {
-  background: var(--income-bg);
-  color: var(--income-fg);
-  border-color: var(--income);
-}
-.login-steps .lucide {
-  width: var(--space-3);
-  height: var(--space-3);
-}
 .login-form-wrap .ant-form-item {
   margin-bottom: var(--space-5);
 }
@@ -557,13 +514,6 @@
   color: var(--text-helper);
   font-size: var(--font-caption);
 }
-.otp-input {
-  font-family: var(--font-numeric);
-  font-size: var(--font-title) !important;
-  letter-spacing: var(--space-2);
-  text-align: center;
-}
-
 @media (min-width: 1600px) {
   .login-story {
     padding-inline: var(--space-16);
@@ -700,9 +650,6 @@
   }
   .login-footer {
     max-width: var(--login-form-max);
-  }
-  .login-steps {
-    gap: var(--space-5);
   }
 }
 @media (prefers-reduced-motion: reduce) {

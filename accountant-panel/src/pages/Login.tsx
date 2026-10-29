@@ -1,10 +1,8 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Alert, Button, Form, Input, Segmented } from "antd";
 import {
   ArrowLeft,
   ArrowRight,
-  Check,
-  Fingerprint,
   Mail,
   ScanLine,
   ShieldCheck,
@@ -12,7 +10,7 @@ import {
   LockKeyhole,
 } from "lucide-react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { api, request } from "../api/client";
+import { request } from "../api/client";
 import { authProvider } from "../api/providers";
 import { useSession } from "../auth/context";
 import { ThemeToggle } from "../components/ThemeToggle";
@@ -24,26 +22,12 @@ export function Login() {
   const active = useSession();
   const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>("login");
-  const [challenge, setChallenge] = useState<string | null>(null);
-  const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const [form] = Form.useForm();
-  useEffect(() => {
-    if (!challenge) return;
-    const deadline = Date.now() + seconds * 1000;
-    const timer = setInterval(
-      () => setSeconds(Math.max(0, Math.ceil((deadline - Date.now()) / 1000))),
-      1000,
-    );
-    return () => clearInterval(timer);
-    // The challenge's lifetime is fixed when it is issued.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [challenge]);
   const changeMode = (next: Mode) => {
     form.resetFields();
-    setChallenge(null);
     setError("");
     setNotice("");
     setMode(next);
@@ -68,19 +52,14 @@ export function Login() {
           body: { token: values.token, new_password: values.password },
         });
         changeMode("login");
-        setNotice("Password updated. Sign in with your authenticator.");
-      } else if (!challenge) {
-        const result = await api.login(values.email, values.password);
-        form.resetFields();
-        setSeconds(result.expires_in);
-        setChallenge(result.challenge_id);
+        setNotice("Password updated. Sign in with your email and password.");
       } else {
         const result = await authProvider.login({
-          challengeId: challenge,
-          code: values.code,
+          email: values.email,
+          password: values.password,
         });
-        form.resetFields(["code"]);
         if (!result.success) throw result.error;
+        form.resetFields();
         navigate("/", { replace: true });
       }
     } catch (caught) {
@@ -165,11 +144,7 @@ export function Login() {
           <div className="login-form-wrap">
             <div className="login-card-heading">
               <span className="login-entry-icon">
-                {challenge ? (
-                  <Fingerprint aria-hidden="true" />
-                ) : (
-                  <LockKeyhole aria-hidden="true" />
-                )}
+                <LockKeyhole aria-hidden="true" />
               </span>
               <span className="secure-chip">
                 {mode === "login" ? "STAFF ACCESS" : "ACCOUNT RECOVERY"}
@@ -180,36 +155,15 @@ export function Login() {
                 ? "Forgot your password?"
                 : mode === "reset"
                   ? "Set a new password"
-                  : challenge
-                    ? "Verify it’s you"
-                    : "Welcome back"}
+                  : "Welcome back"}
             </h2>
             <p className="muted">
               {mode === "forgot"
                 ? "We’ll help you get back to your workspace."
                 : mode === "reset"
-                  ? "Paste the recovery token from your email. Your authenticator stays enabled."
-                  : challenge
-                    ? "Enter the six-digit code from your authenticator app."
-                    : "Your drivers’ books. Your expertise. All in one place."}
+                  ? "Paste the recovery token from your email to set a new password."
+                  : "Your drivers’ books. Your expertise. All in one place."}
             </p>
-            {mode === "login" && (
-              <ol className="login-steps" aria-label="Sign-in progress">
-                <li
-                  className={!challenge ? "current-step" : "complete-step"}
-                  aria-current={!challenge ? "step" : undefined}
-                >
-                  <span>{challenge ? <Check aria-hidden="true" /> : "1"}</span>
-                  Sign in
-                </li>
-                <li
-                  className={challenge ? "current-step" : ""}
-                  aria-current={challenge ? "step" : undefined}
-                >
-                  <span>2</span>Verify identity
-                </li>
-              </ol>
-            )}
             {error && (
               <Alert
                 type="error"
@@ -240,7 +194,7 @@ export function Login() {
               onFinish={submit}
               requiredMark={false}
             >
-              {!challenge && mode !== "reset" && (
+              {mode !== "reset" && (
                 <Form.Item
                   name="email"
                   label="Work email"
@@ -262,7 +216,7 @@ export function Login() {
                   />
                 </Form.Item>
               )}
-              {!challenge && mode !== "forgot" && (
+              {mode !== "forgot" && (
                 <>
                   {mode === "reset" && (
                     <Form.Item
@@ -322,39 +276,10 @@ export function Login() {
                   )}
                 </>
               )}
-              {challenge && (
-                <>
-                  <Form.Item
-                    name="code"
-                    label="Authentication code"
-                    rules={[
-                      {
-                        required: true,
-                        pattern: /^[0-9]{6}$/,
-                        message: "Enter all six digits",
-                      },
-                    ]}
-                  >
-                    <Input
-                      size="large"
-                      className="otp-input"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      maxLength={6}
-                      autoFocus
-                    />
-                  </Form.Item>
-                  <p className="muted" aria-live="polite">
-                    {seconds > 0
-                      ? `Challenge expires in ${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`
-                      : "Challenge expired. Start sign-in again."}
-                  </p>
-                </>
-              )}
-              {mode === "login" && !challenge && (
+              {mode === "login" && (
                 <div className="login-form-options">
                   <span>
-                    <Fingerprint aria-hidden="true" /> Two-step sign-in
+                    <LockKeyhole aria-hidden="true" /> Staff workspace
                   </span>
                   <Button type="link" onClick={() => changeMode("forgot")}>
                     Forgot password?
@@ -369,18 +294,15 @@ export function Login() {
                 icon={<ArrowRight aria-hidden="true" />}
                 iconPlacement="end"
                 loading={busy}
-                disabled={Boolean(challenge && !seconds)}
               >
                 {mode === "forgot"
                   ? "Send recovery instructions"
                   : mode === "reset"
                     ? "Update password"
-                    : challenge
-                      ? "Verify & sign in"
-                      : "Continue securely"}
+                    : "Sign in"}
               </Button>
             </Form>
-            {(mode !== "login" || challenge) && (
+            {mode !== "login" && (
               <Button
                 type="link"
                 icon={<ArrowLeft />}
@@ -411,8 +333,7 @@ export function Login() {
             <div>
               <strong>A workspace you can trust.</strong>
               <p>
-                For authorised staff. Sign-ins are verified and financial
-                actions are recorded.
+                For authorised staff. Financial views and changes are recorded.
               </p>
             </div>
           </div>

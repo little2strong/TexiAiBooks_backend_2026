@@ -10,9 +10,18 @@ class StaffLogin(Body):
     password: SecretStr = Field(min_length=1, max_length=128)
 
 
-class StaffVerification(Body):
-    challenge_id: UUID
-    code: str = Field(pattern=r"^[0-9]{6}$")
+class StaffIdentity(Body):
+    id: UUID
+    name: str
+    email: EmailStr | None
+    role: Literal["accountant", "senior_accountant", "admin", "support"]
+    team_id: UUID | None
+
+
+class StaffLoginResult(Body):
+    access_token: str
+    expires_in: int
+    staff: StaffIdentity
 
 
 class TableQuery(Body):
