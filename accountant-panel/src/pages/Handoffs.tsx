@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Alert, App, Avatar, Button, Form, Input, Modal, Select, Space } from 'antd';
+import { Alert, App, Avatar, Button, Form, Input, Modal, Select, Space, Tooltip } from 'antd';
 import { UserRoundCog } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Link, useLocation } from 'react-router-dom';
@@ -10,13 +10,15 @@ import { can } from '../auth/permissions';
 import { initialQuery, type Handoff, type HandoffStatus, type Page, type Staff, type TableQuery } from '../api/types';
 import { DataTable } from '../components/DataTable';
 import { StatusBadge } from '../components/StatusBadge';
-import { RoleGuard } from '../components/RoleGuard';
 import { date, initials, label } from '../lib/format';
+import { HandoffWorkflow } from '../components/Workflow';
+import { ExplainNumber } from '../components/ExplainNumber';
+import { QueryState } from '../components/States';
 
 const statuses: HandoffStatus[] = ['new', 'in_review', 'waiting_on_driver', 'ready_to_file', 'filed'];
 
 function AssignDialog({ selected, close, done }: { selected: Handoff[]; close: () => void; done: () => void }) {
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState('');
   const [accountantPage, setAccountantPage] = useState(1);
@@ -24,6 +26,9 @@ function AssignDialog({ selected, close, done }: { selected: Handoff[]; close: (
   const result = useQuery({ queryKey: ['accountants', search, accountantPage], queryFn: ({ signal }) => request<Page<Staff>>('/staff/accountants/search',
     { method: 'POST', body: { ...initialQuery, sort: 'name', order: 'asc', search, page: accountantPage, page_size: 25 }, signal }) });
   const submit = async (values: { accountant_id: string; reason: string }) => {
+    const target = result.data?.items.find(row => row.id === values.accountant_id);
+    const confirmed = await modal.confirm({ title: 'Confirm driver reassignment', content: `Assign ${[...new Set(selected.map(row => row.driver_name))].join(', ')} to ${target?.name || 'the selected accountant'}? All their handoffs and financial access move to this accountant. The change and reason will be audited.`, okText: 'Confirm reassignment' });
+    if (!confirmed) return;
     setBusy(true);
     try {
       await api.mutate('/handoffs/assign', { ...values, ids: selected.map(row => row.id), versions: Object.fromEntries(selected.map(row => [row.id, row.version])) });
@@ -33,7 +38,7 @@ function AssignDialog({ selected, close, done }: { selected: Handoff[]; close: (
   };
   return <Modal title={`Assign ${selected.length} handoff(s)`} open onCancel={close} onOk={() => form.submit()} confirmLoading={busy}>
     <Alert type="info" title="Assignment is at driver level" description="Reassigning a handoff also reassigns that driver's other handoffs and financial access." className="form-alert" />
-    {result.isError && <Alert type="error" title={result.error.message} action={<Button onClick={() => void result.refetch()}>Retry</Button>} />}
+    <QueryState pending={result.isPending} error={result.error} retry={result.refetch} empty={result.isSuccess && !result.data.items.length} emptyMessage="No eligible accountant matches this search and team scope. Clear the search or ask an admin."><p>{result.data?.total} eligible accountant(s) in this search.</p></QueryState>
     <Form form={form} layout="vertical" onFinish={submit}>
       <Form.Item name="accountant_id" label="Accountant" rules={[{ required: true }]}><Select showSearch={{ filterOption: false, onSearch: value => { setSearch(value); setAccountantPage(1); } }}
         loading={result.isPending} options={result.data?.items.map(staff => ({ value: staff.id, label: `${staff.name} · ${label(staff.role)}` }))} placeholder="Search an accountant" /></Form.Item>
@@ -46,7 +51,8 @@ function AssignDialog({ selected, close, done }: { selected: Handoff[]; close: (
 export function HandoffTable({ query, onQuery, compact = false }: { query: TableQuery; onQuery: (query: TableQuery) => void; compact?: boolean }) {
   const active = useSession()!;
   const cache = useQueryClient();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
+  const [history, setHistory] = useState<Handoff | null>(null);
   const [assigning, setAssigning] = useState<{ rows: Handoff[]; clear: () => void } | null>(null);
   const [editing, setEditing] = useState<Handoff | null>(null);
   const [busy, setBusy] = useState(false);
@@ -58,11 +64,15 @@ export function HandoffTable({ query, onQuery, compact = false }: { query: Table
     { accessorKey: 'request_type', header: 'Request', enableSorting: false, cell: ({ row }) => label(row.original.request_type) },
     { accessorKey: 'status', header: 'Status', cell: ({ row }) => <StatusBadge status={row.original.status} /> },
     { accessorKey: 'accountant_name', header: 'Accountant', enableSorting: false, cell: ({ row }) => row.original.accountant_name || <span className="unassigned">Unassigned</span> },
-    { accessorKey: 'created_at', header: 'Age', cell: ({ row }) => <span title={date(row.original.created_at)}>{row.original.age_days}d</span> },
-    { id: 'actions', header: '', enableSorting: false, cell: ({ row }) => <RoleGuard action="edit"><Button className="row-action" size="small" onClick={() => { setEditing(row.original); form.setFieldsValue({ status: row.original.status, reason: '', filing_reference: row.original.filing_reference }); }}>Update</Button></RoleGuard> },
-  ], [form]);
+    { accessorKey: 'created_at', header: 'Age', cell: ({ row }) => <span title={date(row.original.created_at)}>{row.original.age_days}d<ExplainNumber name="Handoff age" year={row.original.tax_year || 'Not supplied'}><p>Requested {date(row.original.created_at)}. Server age: {row.original.age_days} days.</p></ExplainNumber></span> },
+    { id: 'actions', header: 'Next action / history', enableSorting: false, cell: ({ row }) => <Space><Tooltip title={!can(active.staff.role, 'edit') ? 'Your role is read-only.' : row.original.status === 'filed' && !can(active.staff.role, 'approve_submission') ? 'Filed records require a senior accountant or admin.' : row.original.status === 'ready_to_file' && !can(active.staff.role, 'approve_submission') ? 'Cannot record filing: a senior accountant or admin must sign off. You can still update the review.' : 'Update the status and record a reason in the audit trail.'}><span><Button className="row-action" size="small" disabled={!can(active.staff.role, 'edit') || row.original.status === 'filed' && !can(active.staff.role, 'approve_submission')} onClick={() => { setEditing(row.original); form.setFieldsValue({ status: ['new', 'waiting_on_driver'].includes(row.original.status) ? 'in_review' : row.original.status === 'ready_to_file' && can(active.staff.role, 'approve_submission') ? 'filed' : row.original.status, reason: '', filing_reference: row.original.filing_reference }); }}>{row.original.status === 'new' ? 'Start review' : row.original.status === 'waiting_on_driver' ? 'Resume review' : row.original.status === 'ready_to_file' ? can(active.staff.role, 'approve_submission') ? 'Record filing' : 'Review handoff' : 'Update'}</Button></span></Tooltip><Button size="small" onClick={() => setHistory(row.original)}>History</Button></Space> },
+  ], [form, active.staff.role]);
   const update = async (values: { status: HandoffStatus; reason: string; filing_reference?: string }) => {
     if (!editing) return;
+    if (values.status === 'filed') {
+      const confirmed = await modal.confirm({ title: 'Record completed external filing?', content: `Mark ${editing.driver_name}, ${editing.tax_year || 'year not supplied'}, as Filed with reference ${values.filing_reference}? This records your sign-off and reason; it does not submit anything to HMRC.`, okText: 'Confirm external filing' });
+      if (!confirmed) return;
+    }
     setBusy(true);
     try {
       await api.mutate(`/handoffs/${editing.id}`, { ...values, filing_reference: values.filing_reference || null, expected_version: editing.version }, 'PATCH');
@@ -78,13 +88,16 @@ export function HandoffTable({ query, onQuery, compact = false }: { query: Table
     selectionAction={(rows, clear) => <Button size="small" type="primary" icon={<UserRoundCog />} onClick={() => setAssigning({ rows, clear })}>Assign accountant</Button>} />
     {assigning && <AssignDialog selected={assigning.rows} close={() => setAssigning(null)} done={() => { assigning.clear(); refresh(); }} />}
     <Modal title="Update handoff" open={Boolean(editing)} onCancel={() => setEditing(null)} onOk={() => form.submit()} confirmLoading={busy} destroyOnHidden>
-      <Form form={form} layout="vertical" onFinish={update}><Form.Item name="status" label="Status" rules={[{ required: true }]}><Select options={statuses.filter(status => status !== 'filed' || can(active.staff.role, 'approve_submission')).map(status => ({ value: status, label: label(status) }))} /></Form.Item>
+      {editing && <HandoffWorkflow record={editing} />}
+      <Form form={form} layout="vertical" onFinish={update}><Form.Item name="status" label="Status" rules={[{ required: true }]}><Select options={statuses.filter(status => status !== 'filed' || can(active.staff.role, 'approve_submission')).map(status => ({ value: status, label: label(status), disabled: status === 'filed' && editing?.status !== 'ready_to_file' }))} /></Form.Item>
+        {editing?.status !== 'ready_to_file' && <p>Cannot record filing: the current handoff must be Ready to file.</p>}
         <Form.Item name="reason" label="Reason" rules={[{ required: true, min: 3, max: 500 }]}><Input.TextArea rows={3} maxLength={500} /></Form.Item>
         <Form.Item noStyle shouldUpdate={(previous, current) => previous.status !== current.status}>{({ getFieldValue }) => getFieldValue('status') === 'filed' ? <>
           <Alert type="warning" title="Record a completed external filing" description="This panel does not submit a tax return. A real filing reference and ready-to-file review are required." className="form-alert" />
           <Form.Item name="filing_reference" label="Actual filing reference" rules={[{ required: true, min: 3, max: 200 }]}><Input maxLength={200} /></Form.Item></> : null}</Form.Item>
       </Form>
     </Modal>
+    <Modal title="Handoff history" open={Boolean(history)} onCancel={() => setHistory(null)} footer={<Button onClick={() => setHistory(null)}>Close</Button>} width={900}>{history && <HandoffWorkflow record={history} />}</Modal>
   </>;
 }
 

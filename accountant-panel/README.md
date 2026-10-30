@@ -93,7 +93,7 @@ $env:RUN_PANEL_BROWSER='1'
 
 The live browser harness builds the panel, starts its own temporary PostgreSQL/API, provisions synthetic identities, runs Playwright and cleans up its server/container. It checks the real staff API, receipt corrections, support permissions, private notes, saved views, CSV and tablet/light/dark WCAG scans. Running `npm run test:e2e` directly without this harness skips the authenticated tests rather than using saved credentials.
 
-Validated 29 October 2026: 230-test backend suite checkpoint, six frontend unit tests, all four live browser scenarios, production/Docker builds, Compose validation and Nginx syntax. Detailed evidence and scope boundaries: [implementation status](../docs/BACKEND_IMPLEMENTATION_STATUS.md#accountant-panel-verification--29-october-2026).
+Current UI verification: 68 frontend tests, 17 staff backend checks, 4 focused tax/workflow checks, 12 browser checks, production build and separate Lighthouse/React profiling runs. Detailed evidence: [UI debugging report](../docs/ADMIN_PANEL_UI_REPORT.md). Broader backend scope and prior verification: [implementation status](../docs/BACKEND_IMPLEMENTATION_STATUS.md#accountant-panel-verification--29-october-2026).
 
 ## Visual system
 
@@ -114,3 +114,35 @@ npm.cmd run test:e2e -- e2e/theme.spec.ts
 ```
 
 These browser checks cover appearance persistence, live System mode, both themes' WCAG scans, overlays, density, reduced motion, mobile/tablet overflow, the workspace/search shell and receipt Undo. Workspace/receipt tests intercept requests with synthetic responses confined to the test process. They do not replace the live PostgreSQL integration suite above.
+
+## Before merging any screen
+
+- [ ] Has shared loading, empty (with next action), error (with request ID and Retry), and data states.
+- [ ] Reserves dimensions for cards, tables, rows and media; matching loading frames; stable scrollbar gutter.
+- [ ] Validates API response types at the boundary; maps response variants in `src/api/contracts.ts`; unknown values differ from zero.
+- [ ] Explains calculated numbers, input sources, selected year, API rates and limitations.
+- [ ] Explains statuses, next owner/action, disabled reasons, workflow history and recorded audit actors.
+- [ ] Confirms external filing, exclusion and reassignment with concrete consequences.
+- [ ] Passes state/contract tests, role/accessibility checks, and normal-motion slow-API smoke tests (CLS ≤ 0.1; no console errors).
+
+UI debugging findings, grouped diffs, business glossary, formulas and limits: [ADMIN_PANEL_UI_REPORT.md](../docs/ADMIN_PANEL_UI_REPORT.md).
+
+Comparable Lighthouse/Chrome captures use a disposable database, a 1440×900 viewport and fixed 800 ms request latency. Full-page screenshots are taken **after** each measurement window so viewport resizing does not contaminate CLS. Stop the local dev server before the harness owns port 5173. Run each database suite separately: the browser harness commits synthetic records, whereas the backend suite expects its own clean session database.
+
+```powershell
+# Repository root, after installing panel dependencies and Playwright Chromium:
+npm.cmd ci --prefix tools/ui-audit --ignore-scripts # optional Lighthouse tools; separate lockfile
+$env:RUN_PANEL_BROWSER='1'
+$env:PANEL_EVIDENCE_MODE='before' # rebuilds the saved source snapshot, leaving src untouched
+.\.venv\Scripts\python.exe -m pytest tests/test_panel_browser.py -q
+$env:PANEL_EVIDENCE_MODE='after'
+.\.venv\Scripts\python.exe -m pytest tests/test_panel_browser.py -q
+Remove-Item Env:PANEL_EVIDENCE_MODE
+$env:PANEL_DIAGNOSTICS='1' # development-only React Profiler + why-did-you-render
+.\.venv\Scripts\python.exe -m pytest tests/test_panel_browser.py -q
+Remove-Item Env:PANEL_DIAGNOSTICS
+```
+
+The diagnostics flag is off by default. It records only component names, render timings and counts, never props, tokens or financial values. React render samples are saved in `artifacts/ui-debug/after/react-profiler.json`. Load `chrome-*.trace.json` in Chrome DevTools Performance; open `lighthouse.html` for the Lighthouse flow. All captured records are synthetic, and authentication tokens/passwords are redacted. The original source snapshot is kept solely for reproducible before/after comparisons.
+
+No new application route or financial calculation was introduced. Workflow/audit projections and the optional activity `resource_id` filter are additive staff API metadata; `X-Request-ID` correlates visible HTTP errors. Existing ledger column names remain compatible; response normalization and new camelCase UI metadata live in one mapper per resource. A handoff marked Filed still records an external filing, and receipt/reconciliation checks remain advisories unless the backend policy changes.

@@ -217,11 +217,19 @@ def test_staff_receipt_confirmation_and_exact_correction(client, panel, db_sessi
         "expected_version": 1, "decision": "approve", "category_id": str(catalog_id("category", "phone_data")), "business_use_percent": "75", "reason": "Evidence reviewed"})
     assert result.status_code == 200, result.text
     assert result.json()["transaction"]["deductible_pence"] == 7500
+    reviewed = client.get(f"/api/v1/staff/drivers/{owner}/receipts/{receipt.id}", headers=auth).json()
+    assert reviewed["reviewed_by"] == members["accountant"][0].name
+    assert reviewed["reviewed_at"] is not None
     row = result.json()["receipt"]
     reversed = client.post(f"/api/v1/staff/drivers/{owner}/receipts/{receipt.id}/reversals", headers=mutation(auth), json={
         "expected_version": row["version"], "mutation_id": result.json()["mutation_id"], "reason": "Correct category"})
     assert reversed.status_code == 200, reversed.text
     assert reversed.json()["transaction"]["review_status"] == "reversed"
+    assert client.get(f"/api/v1/staff/drivers/{owner}/receipts/{receipt.id}", headers=auth).json()["reviewed_by"] is None
+    events = client.post(f"/api/v1/staff/drivers/{owner}/activity/search", headers=auth,
+        json={"filters": {"resource_id": str(receipt.id)}}).json()["items"]
+    assert {"receipt_approve", "receipt_confirmation_reversed"} <= {event["action"] for event in events}
+    assert all(event["resource_id"] == str(receipt.id) for event in events)
     assert client.get(f"/api/v1/staff/drivers/{owner}/documents/{file.id}/content", headers=auth).status_code == 409
 
 
@@ -259,6 +267,13 @@ def test_filed_requires_senior_ready_state_and_real_reference(client, panel, db_
     filed = client.patch(path, headers=mutation(members["senior_accountant"][1]), json={**payload, "expected_version": 2})
     assert filed.status_code == 200, filed.text
     assert filed.json()["filing_reference"] == "synthetic-reference"
+    assert {event["after"]["status"] for event in filed.json()["workflow_events"] if event["action"] == "handoff_updated"} == {"ready_to_file", "filed"}
+    assert all(event["actor_name"] and event["created_at"] for event in filed.json()["workflow_events"])
+    overview = client.post(f"/api/v1/staff/drivers/{owner}/overview", headers=members["accountant"][1], json={"tax_year": "2026-27"})
+    assert overview.json()["handoffs"][0]["status"] == "filed"
+    request_id = str(uuid4())
+    response = client.post(path, headers={**members["support"][1], "X-Request-ID": request_id}, json={})
+    assert response.headers["X-Request-ID"] == request_id
 
 
 def test_unknown_date_receipt_review_and_full_legacy_activity(client, panel, db_session):

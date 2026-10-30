@@ -1,9 +1,43 @@
 @import "antd/dist/reset.css";
 @import "./theme/tokens.css";
 
-* {
+*, *::before, *::after {
   box-sizing: border-box;
 }
+html { scrollbar-gutter: stable; }
+/* Stable frames are shared by loaded, pending, empty and failed panels. */
+.query-panel { min-height: 280px; }
+.query-table { height: 360px; overflow: auto; }
+.query-dashboard { min-height: 530px; }
+.query-profile { min-height: 650px; }
+.query-tax { min-height: 700px; }
+.loading-detail { min-height: 272px; }
+.loading-profile { min-height: 162px; }
+.loading-workflow { min-height: 420px; }
+.loading-filing { min-height: 880px; }
+.loading-tax-notice { height: 100px; }
+.cell-content { height: calc(var(--row-height) - 17px); display: flex; align-items: center; gap: 8px; overflow: auto; }
+.table-compact .cell-content { height: calc(var(--row-compact) - 9px); }
+.table-scroll td[data-numeric="true"] .cell-content { justify-content: flex-end; }
+.selection-bar { min-height: 48px; }
+.number-label { display: flex; align-items: center; gap: 4px; }
+.number-info { flex-shrink: 0; }
+.workflow-card { margin-bottom: var(--space-5); }
+.workflow-steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-block: 16px; }
+.workflow-step { border: 1px solid var(--border); padding: 12px; border-radius: var(--radius-control); }
+.workflow-step[aria-current="step"] { outline: 2px solid var(--brand-primary); }
+.workflow-step small { display: block; margin-top: 8px; }
+.checklist { list-style: none; padding: 0; }
+.checklist li { display: flex; flex-wrap: wrap; gap: 8px; padding-block: 8px; border-bottom: 1px solid var(--border); }
+.checklist a { margin-left: auto; }
+.breakdown { margin: 0; }
+.breakdown dt { margin-top: 16px; font-weight: 600; }
+.breakdown dd { margin: 4px 0; overflow-wrap: anywhere; }
+@media (max-width: 900px) { .workflow-steps { grid-template-columns: 1fr; } }
+/* Application motion never animates layout or colour properties. */
+.sidebar, .workspace-body, .status-badge, .table-scroll tbody tr, .sidebar a { transition: opacity var(--motion-micro); }
+.row-flash, .row-approved { animation: none; }
+@font-face { font-family: 'Inter fallback'; src: local('Arial'); size-adjust: 107%; ascent-override: 90%; descent-override: 22%; line-gap-override: 0%; }
 html,
 body {
   margin: 0;
@@ -131,7 +165,7 @@ label {
 .ant-btn {
   font-weight: 500;
   transition:
-    background var(--motion-micro) var(--ease-standard),
+    opacity var(--motion-micro) var(--ease-standard),
     transform var(--motion-micro);
 }
 .ant-btn:not(:disabled):not(.ant-btn-loading):active {
@@ -140,6 +174,7 @@ label {
 .ant-btn-primary:not(.ant-btn-dangerous) {
   color: var(--brand-on-primary) !important;
 }
+.ant-btn-dangerous:not(.ant-btn-primary):not(:disabled) { color: var(--expense-fg) !important; }
 .ant-modal-content,
 .ant-drawer-content {
   border: var(--border-width) solid var(--border);
@@ -183,7 +218,6 @@ label {
   z-index: 30;
   overflow-y: auto;
   overflow-x: hidden;
-  transition: width var(--motion-standard) var(--ease-standard);
 }
 .brand {
   display: flex;
@@ -248,7 +282,7 @@ label {
   text-decoration: none;
   white-space: nowrap;
   position: relative;
-  transition: background var(--motion-micro);
+  transition: opacity var(--motion-micro);
 }
 .sidebar nav > a.active {
   color: var(--brand-primary);
@@ -343,9 +377,6 @@ label {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  transition:
-    margin-left var(--motion-standard),
-    width var(--motion-standard);
 }
 .topbar {
   height: var(--topbar-height);
@@ -397,9 +428,6 @@ kbd {
   padding: var(--space-6) var(--space-6) var(--space-12);
   flex: 1;
   outline: none;
-}
-.main-content > :not(.ant-modal-root) {
-  animation: page-enter var(--motion-standard) var(--ease-enter) both;
 }
 .page-heading {
   display: flex;
@@ -472,6 +500,7 @@ kbd {
   margin-bottom: var(--space-6);
 }
 .stat-card {
+  min-height: 160px;
   padding: var(--space-5);
   display: flex;
   flex-direction: column;
@@ -669,7 +698,7 @@ kbd {
 }
 .table-scroll {
   overflow: auto;
-  max-height: 64vh;
+  height: 360px;
   border-radius: 0 0 var(--radius-card) var(--radius-card);
 }
 .table-scroll table {
@@ -701,7 +730,7 @@ kbd {
   border-bottom: 0;
 }
 .table-scroll tbody tr {
-  transition: background var(--motion-micro);
+  transition: opacity var(--motion-micro);
 }
 .table-scroll tbody tr:hover {
   background: var(--bg-subtle);
@@ -768,8 +797,7 @@ kbd {
   background: var(--bg-subtle) !important;
   border-color: var(--border) !important;
   transition:
-    background var(--motion-standard),
-    color var(--motion-standard);
+    opacity var(--motion-standard);
   margin-inline-end: 0;
 }
 .status-dot {
@@ -858,9 +886,7 @@ kbd {
   color: var(--text-secondary);
 }
 .profile-heading {
-  position: sticky;
-  top: var(--topbar-height);
-  z-index: 8;
+  position: relative;
   margin-bottom: var(--space-6);
   padding: var(--space-5);
   background: var(--bg-surface);
@@ -1018,6 +1044,8 @@ kbd {
   overflow: auto;
 }
 .receipt-media img {
+  aspect-ratio: 3 / 4;
+  object-fit: contain;
   max-width: 100%;
   max-height: 75vh;
   object-fit: contain;
@@ -1254,7 +1282,7 @@ kbd {
   animation: page-enter var(--motion-standard) var(--ease-enter);
 }
 .row-flash {
-  animation: row-flash var(--motion-shimmer) var(--ease-standard);
+  animation: none;
 }
 .empty-state {
   padding: var(--space-6);
@@ -1273,7 +1301,7 @@ kbd {
   color: var(--text-secondary);
 }
 .row-action {
-  opacity: 0;
+  opacity: 1;
   transition: opacity var(--motion-micro);
 }
 tr:hover .row-action,
@@ -1292,18 +1320,18 @@ tr:focus-within .row-action {
 }
 @keyframes chart-draw {
   from {
-    stroke-dashoffset: 600;
+    opacity: 0;
   }
   to {
-    stroke-dashoffset: 0;
+    opacity: 1;
   }
 }
 @keyframes row-flash {
   from {
-    background: var(--brand-bg);
+    opacity: .7;
   }
   to {
-    background: transparent;
+    opacity: 1;
   }
 }
 @keyframes thinking {
@@ -1600,14 +1628,14 @@ tr:focus-within .row-action {
   }
 }
 .row-approved {
-  animation: row-approved var(--motion-shimmer) var(--ease-standard);
+  animation: none;
 }
 @keyframes row-approved {
   from {
-    background: var(--income-bg);
+    opacity: .7;
   }
   to {
-    background: transparent;
+    opacity: 1;
   }
 }
 @media (prefers-reduced-motion: reduce) {

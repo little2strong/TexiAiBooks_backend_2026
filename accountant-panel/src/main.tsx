@@ -1,9 +1,11 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { Refine } from "@refinedev/core";
 import { QueryClient } from "@tanstack/react-query";
 import { App as AntApp, Result, Button, Skeleton } from "antd";
-import { BrowserRouter, Route, Routes, Link } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Link, useLocation } from "react-router-dom";
+import { PanelBoundary } from './components/States';
+import interFont from '@fontsource/inter/files/inter-latin-400-normal.woff2?url';
 import { dataProvider, authProvider } from "./api/providers";
 import { can, type Action } from "./auth/permissions";
 import { session } from "./auth/session";
@@ -46,6 +48,10 @@ session.subscribe(() => {
   }
 });
 
+function RoutePanel({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  return <PanelBoundary resetKey={location.pathname}>{children}</PanelBoundary>;
+}
 function Panel() {
   return (
     <ThemeProvider>
@@ -79,7 +85,7 @@ function Panel() {
               reactQuery: { clientConfig: queryClient },
             }}
           >
-            <Routes>
+            <RoutePanel><Routes>
               <Route path="/login" element={<Login />} />
               <Route
                 path="/styleguide"
@@ -105,10 +111,10 @@ function Panel() {
                   </ProtectedWorkspace>
                 }
               >
-                <Route index element={<DashboardPage />} />
-                <Route path="handoffs" element={<HandoffsPage />} />
-                <Route path="drivers" element={<DriversPage />} />
-                <Route path="drivers/:id" element={<DriverProfilePage />} />
+                <Route index element={<RoutePanel><DashboardPage /></RoutePanel>} />
+                <Route path="handoffs" element={<RoutePanel><HandoffsPage /></RoutePanel>} />
+                <Route path="drivers" element={<RoutePanel><DriversPage /></RoutePanel>} />
+                <Route path="drivers/:id" element={<RoutePanel><DriverProfilePage /></RoutePanel>} />
               </Route>
               <Route
                 path="*"
@@ -124,7 +130,7 @@ function Panel() {
                   />
                 }
               />
-            </Routes>
+            </Routes></RoutePanel>
           </Refine>
         </BrowserRouter>
       </AntApp>
@@ -132,4 +138,13 @@ function Panel() {
   );
 }
 
-createRoot(document.getElementById("root")!).render(<Panel />);
+const preload = document.createElement('link');
+preload.rel = 'preload'; preload.as = 'font'; preload.type = 'font/woff2'; preload.crossOrigin = 'anonymous'; preload.href = interFont;
+if (!document.querySelector(`link[href="${interFont}"]`)) document.head.append(preload);
+async function mount() {
+  if (import.meta.env.DEV && import.meta.env.VITE_UI_DIAGNOSTICS === 'true') await import('./ui-diagnostics');
+  const root = import.meta.hot?.data.root || createRoot(document.getElementById('root')!);
+  if (import.meta.hot) import.meta.hot.data.root = root;
+  root.render(<PanelBoundary><Panel /></PanelBoundary>);
+}
+void mount();

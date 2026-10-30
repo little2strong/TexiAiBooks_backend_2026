@@ -1,0 +1,327 @@
+--- a/accountant-panel/src/api/client.ts
++++ b/accountant-panel/src/api/client.ts
+@@ -1,4 +1,5 @@
+ import { session } from "../auth/session";
++import { decodeResponse } from './contracts';
+ import type {
+   Config,
+   Dashboard,
+@@ -43,6 +44,8 @@
+   const headers = new Headers({
+     Accept: options.binary ? "*/*" : "application/json",
+   });
++  const requestId = crypto.randomUUID();
++  headers.set('X-Request-ID', requestId);
+   const token = session.token();
+   if (!options.public) {
+     if (!token)
+@@ -75,12 +78,12 @@
+     if (options.signal?.aborted) throw error;
+     throw new ApiError(
+       0,
+-      "Unable to reach the API. Check the connection and try again.",
++      `Unable to reach the API. Check the connection and try again. Request ID: ${requestId}`,
+     );
+   }
+   if (!response.ok) {
+     if (response.status === 401 && !options.public && session.token() === token)
+-      session.end();
++      session.end(`Your session has expired. Sign in again. Request ID: ${response.headers.get('X-Request-ID') || requestId}`);
+     const messages: Record<number, string> = {
+       401: "Your email or password is invalid, or your session has expired.",
+       403: "Your role does not allow this action.",
+@@ -93,11 +96,15 @@
+     };
+     throw new ApiError(
+       response.status,
+-      messages[response.status] || "The request failed. Please try again.",
++      `${messages[response.status] || "The request failed. Please try again."} Request ID: ${response.headers.get('X-Request-ID') || requestId}`,
+     );
+   }
+   if (response.status === 204) return undefined as T;
+-  return (options.binary ? response.blob() : response.json()) as Promise<T>;
++  if (options.binary) return response.blob() as Promise<T>;
++  let body: unknown;
++  try { body = await response.json(); }
++  catch { throw new ApiError(response.status, `The server returned unreadable data. Retry or contact support. Request ID: ${response.headers.get('X-Request-ID') || requestId}`); }
++  return decodeResponse(path, options.method || 'GET', body, response.headers.get('X-Request-ID') || requestId) as T;
+ }
+ 
+ const post = <T>(path: string, body: unknown, signal?: AbortSignal) =>
+--- a/accountant-panel/src/api/contracts.ts
++++ b/accountant-panel/src/api/contracts.ts
+@@ -0,0 +1,106 @@
++import { z } from 'zod';
++
++const text = z.string();
++const nullableText = text.nullable();
++const integer = z.number().int().safe();
++const count = integer.nonnegative();
++const decimal = z.string().regex(/^-?\d+(\.\d+)?$/);
++const timestamp = text.refine(value => Number.isFinite(Date.parse(value)), 'Invalid date');
++const object = <T extends z.ZodRawShape>(shape: T) => z.object(shape).passthrough();
++const record = z.record(text, z.unknown());
++const strings = z.array(text);
++const staff = object({ id: text, name: text, email: text, role: z.enum(['accountant', 'senior_accountant', 'admin', 'support']), team_id: nullableText });
++const driver = object({ id: text, name: text, email: nullableText, accountant_id: nullableText, accountant_name: nullableText, created_at: timestamp });
++const event = object({ id: text, actor_name: text, action: text, created_at: timestamp, before: record.nullable(), after: record.nullable() });
++const review = { reviewed_by: nullableText.optional(), reviewed_at: timestamp.nullable().optional() };
++const handoff = object({ id: text, driver_id: text, driver_name: text, driver_email: nullableText, tax_year: nullableText, request_type: text,
++  status: z.enum(['new', 'in_review', 'waiting_on_driver', 'ready_to_file', 'filed']), accountant_id: nullableText, accountant_name: nullableText,
++  created_at: timestamp, age_days: count, version: count, filing_reference: nullableText, workflow_events: z.array(event).optional() });
++const totals = object({ income_pence: integer, deductible_expenses_pence: integer, profit_pence: integer, estimated_tax_pence: integer.nullable(),
++  business_miles: decimal, pending_receipts: count, unresolved_issues: count, mileage_deduction_pence: integer.optional(), as_of: timestamp.optional(), has_data: z.boolean().optional() });
++const transaction = object({ id: text, version: count, occurred_on: timestamp, amount_pence: integer, description: nullableText,
++  category_id: nullableText, category_name: text, source_name: nullableText, business_use_percent: decimal, deductible_pence: integer,
++  review_status: text, claim_status: text, eligibility_reason_codes: strings, receipt_id: nullableText, receipt_version: count.nullable(),
++  import_origin_key: nullableText, ai_category: nullableText, ai_confidence: z.union([z.number(), text, z.record(text, z.number())]).nullable(), ai_reason: strings, ...review });
++const receipt = object({ id: text, version: count, created_at: timestamp, file_id: text, review_status: text, claim_status: text,
++  transaction_id: nullableText, mutation_id: nullableText, scan_status: text.optional(), mime_type: text.optional(),
++  merchant: nullableText.optional(), occurred_on: timestamp.nullable().optional(), amount_pence: integer.nullable().optional(),
++  vat_pence: integer.nullable().optional(), category_id: nullableText.optional(), business_use_percent: decimal.nullable().optional(),
++  extraction: object({ confidence: z.union([z.number(), text, z.record(text, z.number())]).optional(), warnings: strings.optional(), suggested_category_id: text.optional() }).nullable(), warnings: strings, ...review });
++const mileage = object({ id: text, occurred_on: timestamp, business_miles: decimal, private_miles: decimal, purpose: text, vehicle_id: text, start_odometer: nullableText, end_odometer: nullableText });
++const document = object({ id: text, mime_type: text, size_bytes: count, scan_status: text, created_at: timestamp });
++const entry = object({ id: text, body: text, kind: z.enum(['message', 'note', 'ticket']), author: text, created_at: timestamp, staff_id: nullableText });
++const tableQuery = object({ page: count.min(1), page_size: count.min(1), sort: text, order: z.enum(['asc', 'desc']), search: text, filters: z.record(text, text) });
++const view = object({ id: text, name: text, resource: text, query: tableQuery });
++const rule = object({ code: text, value: record, official_url: z.url(), verified_at: timestamp });
++const estimateFields = { total_pence: integer, income_tax_pence: integer, class4_pence: integer, personal_allowance_pence: integer,
++  profit_pence: integer, income_pence: integer, expense_deduction_pence: integer, paye_tax_paid_pence: integer, student_loan_pence: integer,
++  savings_tax_pence: integer, allowance_used_elsewhere_pence: integer, combined_income_pence: integer, as_of: timestamp,
++  warnings: strings, assumptions: strings, bands: z.array(object({ label: text, rate: text, base_pence: integer, tax_pence: integer })) };
++const tax = object({ calculation_context: record.optional(), estimate: z.union([object({ available: z.literal(false), reason: text }), object(estimateFields)]),
++  payments: object({ items: z.array(object({ id: text, due_on: timestamp, label_key: text.optional(), type: text.optional(), amount_pence: integer.nullish() })
++    .refine(value => Boolean(value.label_key || value.type), 'Payment needs a label or type')), warnings: strings.optional() }),
++  rules: object({ id: text, tax_year: text, version: z.union([text, integer]), rules: z.array(rule) }) });
++const dashboard = object({ assigned_drivers: count, pending_handoffs: count, due_soon: count, overdue: count, year_not_supplied: count,
++  deadline: object({ due_on: timestamp, days_remaining: integer, tax_year: text }), workload: z.array(object({ id: text, status: handoff.shape.status, count })), as_of: timestamp });
++const overview = driver.extend({ tax_year: text, utr_masked: nullableText, ni_masked: nullableText, driver_profile: record,
++  subscription: object({ status: text, plan_id: text.nullish(), renew_at: text.nullish() }), totals, handoffs: z.array(handoff).optional() });
++const config = object({ tax_years: strings, current_tax_year: text, idle_timeout_seconds: count, upload_max_bytes: count,
++  categories: z.array(object({ id: text, code: text, requires_vehicle: z.boolean() })), sources: z.array(object({ id: text, name: text })) });
++
++// Existing ledger columns retain their established names. New UI-only fields are
++// mapped here once, rather than guessed or renamed independently in each widget.
++const mapHandoff = handoff.transform(({ workflow_events, ...value }) => ({ ...value, workflowEvents: workflow_events ?? [] }));
++export const resourceMappers = {
++  staff: staff.transform(value => value), driver: driver.transform(value => value),
++  handoff: mapHandoff,
++  transaction: transaction.transform(({ reviewed_by, reviewed_at, ...value }) => ({ ...value, reviewerName: reviewed_by ?? null, reviewedAt: reviewed_at ?? null })),
++  receipt: receipt.transform(({ reviewed_by, reviewed_at, ...value }) => ({ ...value, reviewerName: reviewed_by ?? null, reviewedAt: reviewed_at ?? null })),
++  mileage: mileage.transform(value => value), document: document.transform(value => value), entry: entry.transform(value => value), audit: event.transform(value => value), view: view.transform(value => value),
++  config: config.transform(value => value), dashboard: dashboard.transform(value => value),
++  overview: overview.transform(({ handoffs, ...value }) => ({ ...value, handoffs: (handoffs ?? []).map(row => mapHandoff.parse(row)) })),
++  tax: tax.transform(({ calculation_context, ...value }) => ({ ...value, calculationContext: calculation_context ?? {}, payments: { ...value.payments, items: value.payments.items.map(item => ({ ...item, label_key: item.label_key ?? item.type! })) } })),
++};
++const page = (schema: z.ZodType) => object({ items: z.array(schema), total: count, page: count.min(1), page_size: count.min(1) });
++const tableResources: Record<string, z.ZodType> = { drivers: resourceMappers.driver, handoffs: resourceMappers.handoff, accountants: resourceMappers.staff,
++  income: resourceMappers.transaction, expenses: resourceMappers.transaction, mileage: resourceMappers.mileage, documents: resourceMappers.document,
++  receipts: resourceMappers.receipt, messages: resourceMappers.entry, notes: resourceMappers.entry, activity: resourceMappers.audit };
++
++export function responseSchema(path: string, method = 'GET'): z.ZodType {
++  const tail = path.split('/').filter(Boolean).at(-1);
++  if (path.endsWith('/auth/login')) return object({ access_token: text.min(1), expires_in: count.min(1), staff: resourceMappers.staff });
++  if (path.endsWith('/auth/forgot-password')) return object({ message: text });
++  if (path.endsWith('/me')) return resourceMappers.staff;
++  if (tail === 'config') return resourceMappers.config;
++  if (tail === 'dashboard') return resourceMappers.dashboard;
++  if (tail === 'overview') return resourceMappers.overview;
++  if (tail === 'tax') return resourceMappers.tax;
++  if (path.endsWith('/views/search')) return object({ items: z.array(resourceMappers.view) });
++  if (tail === 'views') return resourceMappers.view;
++  if (tail === 'search') {
++    const resource = path.split('/').at(-2)!;
++    if (!tableResources[resource]) throw new Error(`No table contract: ${resource}`);
++    const schema = page(tableResources[resource]);
++    return resource === 'mileage' ? schema.extend({ summary: object({ business_miles: decimal, deduction_pence: integer, threshold_remaining: decimal }) }) : schema;
++  }
++  if (tail === 'reveal') return object({ value: text, expires_in: count });
++  if (path.endsWith('/handoffs/assign')) return object({ items: z.array(resourceMappers.handoff) });
++  if (/\/handoffs\/[^/]+$/.test(path)) return resourceMappers.handoff;
++  if (tail === 'review') return object({ receipt: resourceMappers.receipt, mutation_id: text });
++  if (/\/receipts\/[^/]+$/.test(path) && method === 'GET') return resourceMappers.receipt;
++  // Mutation envelopes differ by operation; the fields consumed by the UI are validated.
++  if (/\/receipts\/[^/]+$/.test(path)) return resourceMappers.receipt;
++  if (/\/expenses\/[^/]+$/.test(path)) return object({ id: text, version: count, amount_pence: integer, deductible_pence: integer, review_status: text });
++  if (tail === 'messages' || tail === 'notes') return resourceMappers.entry;
++  if (tail === 'documents') return object({ id: text });
++  if (tail === 'reversals') return object({ receipt: resourceMappers.receipt, transaction: object({ id: text, review_status: text }) });
++  throw new Error(`No API response contract for ${path.replace(/[a-f0-9-]{36}/g, ':id')}`);
++}
++
++export function decodeResponse(path: string, method: string, value: unknown, requestId: string): unknown {
++  const result = responseSchema(path, method).safeParse(value);
++  if (result.success) return result.data;
++  const fields = result.error.issues.map(issue => issue.path.join('.') || '(response)').join(', ');
++  console.error(`API contract mismatch: ${path.replace(/[a-f0-9-]{36}/g, ':id')} — ${fields} — request ${requestId}`);
++  throw new Error(`The server returned unexpected data (${fields}). Retry or contact support. Request ID: ${requestId}`);
++}
+--- a/accountant-panel/src/api/types.ts
++++ b/accountant-panel/src/api/types.ts
+@@ -31,6 +31,7 @@
+ export type HandoffStatus =
+   "new" | "in_review" | "waiting_on_driver" | "ready_to_file" | "filed";
+ export interface Handoff {
++  workflowEvents: AuditEvent[];
+   id: string;
+   driver_id: string;
+   driver_name: string;
+@@ -64,6 +65,9 @@
+   as_of: string;
+ }
+ export interface Totals {
++  mileage_deduction_pence?: number;
++  as_of?: string;
++  has_data?: boolean;
+   income_pence: number;
+   deductible_expenses_pence: number;
+   profit_pence: number;
+@@ -73,6 +77,7 @@
+   unresolved_issues: number;
+ }
+ export interface Overview extends Driver {
++  handoffs: Handoff[];
+   tax_year: string;
+   utr_masked: string | null;
+   ni_masked: string | null;
+@@ -85,6 +90,8 @@
+   totals: Totals;
+ }
+ export interface Transaction {
++  reviewerName?: string | null;
++  reviewedAt?: string | null;
+   id: string;
+   version: number;
+   occurred_on: string;
+@@ -139,6 +146,8 @@
+   after: Record<string, unknown> | null;
+ }
+ export interface Receipt {
++  reviewerName?: string | null;
++  reviewedAt?: string | null;
+   id: string;
+   version: number;
+   created_at: string;
+@@ -169,7 +178,16 @@
+   verified_at: string;
+ }
+ export interface TaxResult {
++  calculationContext?: Record<string, unknown>;
+   estimate: {
++    income_pence?: number;
++    expense_deduction_pence?: number;
++    paye_tax_paid_pence?: number;
++    student_loan_pence?: number;
++    savings_tax_pence?: number;
++    allowance_used_elsewhere_pence?: number;
++    combined_income_pence?: number;
++    as_of?: string;
+     available?: boolean;
+     reason?: string;
+     total_pence?: number;
+@@ -187,6 +205,11 @@
+     }[];
+   };
+   payments: {
++    prior_year_liability_pence?: number | null;
++    advance_payments_pence?: number | null;
++    adjustments_pence?: number | null;
++    estimated_year_liability_pence?: number | null;
++    tax_paid_outside_sa_pence?: number | null;
+     items: {
+       id: string;
+       due_on: string;
+@@ -195,7 +218,7 @@
+     }[];
+     warnings?: string[];
+   };
+-  rules: { id: string; tax_year: string; version: string; rules: TaxRule[] };
++  rules: { id: string; tax_year: string; version: string | number; rules: TaxRule[] };
+ }
+ export interface SavedView {
+   id: string;
+--- a/accountant-panel/src/lib/format.ts
++++ b/accountant-panel/src/lib/format.ts
+@@ -1,6 +1,6 @@
+-export const money = (pence: number | null | undefined) => pence == null ? 'Not available' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(pence / 100);
+-export const date = (value: string) => new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London' }).format(new Date(value));
+-export const datetime = (value: string) => new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/London' }).format(new Date(value));
++export const money = (pence: number | null | undefined) => pence == null || !Number.isFinite(pence) ? '—' : new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(pence / 100);
++export const date = (value: string) => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Europe/London' }).format(new Date(value)) : '—';
++export const datetime = (value: string) => Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat('en-GB', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/London' }).format(new Date(value)) : '—';
+ export const label = (value: string) => value.replace(/^category\./, '').replaceAll('_', ' ').replace(/\b\w/g, s => s.toUpperCase());
+ export const initials = (value: string) => value.trim().split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
+ 
+--- a/accountant-panel/src/auth/session.ts
++++ b/accountant-panel/src/auth/session.ts
+@@ -3,22 +3,26 @@
+ let current: { token: string; staff: Staff; expiresAt: number } | null = null;
+ const listeners = new Set<() => void>();
+ let expiryTimer: ReturnType<typeof setTimeout> | undefined;
++let notice: string | null = null;
+ 
+ export const session = {
+   get: () => current,
+   token: () =>
+     current && current.expiresAt > Date.now() ? current.token : null,
+   start: (result: StaffLoginResult) => {
++    notice = null;
+     clearTimeout(expiryTimer);
+     current = {
+       token: result.access_token,
+       staff: result.staff,
+       expiresAt: Date.now() + result.expires_in * 1000,
+     };
+-    expiryTimer = setTimeout(() => session.end(), result.expires_in * 1000);
++    expiryTimer = setTimeout(() => session.end('Your session has expired. Sign in again.'), result.expires_in * 1000);
+     listeners.forEach((listener) => listener());
+   },
+-  end: () => {
++  notice: () => notice,
++  end: (reason?: string) => {
++    notice = reason || null;
+     clearTimeout(expiryTimer);
+     current = null;
+     listeners.forEach((listener) => listener());
+--- a/accountant-panel/src/pages/Login.tsx
++++ b/accountant-panel/src/pages/Login.tsx
+@@ -13,6 +13,7 @@
+ import { request } from "../api/client";
+ import { authProvider } from "../api/providers";
+ import { useSession } from "../auth/context";
++import { session } from '../auth/session';
+ import { ThemeToggle } from "../components/ThemeToggle";
+ import { LoginShowcase } from "../components/LoginShowcase";
+ import "./login.css";
+@@ -23,7 +24,7 @@
+   const navigate = useNavigate();
+   const [mode, setMode] = useState<Mode>("login");
+   const [error, setError] = useState("");
+-  const [notice, setNotice] = useState("");
++  const [notice, setNotice] = useState(session.notice() || '');
+   const [busy, setBusy] = useState(false);
+   const [form] = Form.useForm();
+   const changeMode = (next: Mode) => {
+--- a/app/main.py
++++ b/app/main.py
+@@ -1,4 +1,5 @@
+ from contextlib import asynccontextmanager
++from uuid import UUID, uuid4
+ 
+ from fastapi import FastAPI, Request
+ from fastapi.exceptions import RequestValidationError
+@@ -41,7 +42,13 @@
+ 
+     @application.middleware("http")
+     async def security_headers(request: Request, call_next):
++        try:
++            request_id = str(UUID(request.headers.get("X-Request-ID", "")))
++        except ValueError:
++            request_id = str(uuid4())
++        request.state.request_id = request_id
+         response = await call_next(request)
++        response.headers["X-Request-ID"] = request_id
+         response.headers["X-Content-Type-Options"] = "nosniff"
+         if request.url.path.startswith("/api/v1") and request.url.path not in {"/api/v1/reference-data", "/api/v1/subscription-plans"}:
+             response.headers["Cache-Control"] = "no-store"

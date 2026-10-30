@@ -129,6 +129,7 @@ async function mockWorkspace(page: Page) {
         tax_years: ["2026-27"],
         current_tax_year: "2026-27",
         idle_timeout_seconds: 900,
+        upload_max_bytes: 10485760,
         categories: [
           { id: "fuel", code: "category.fuel", requires_vehicle: true },
         ],
@@ -273,7 +274,7 @@ test("receipt review uses confidence tokens, zoom and exact audited Undo", async
       reversals.push(route.request().postDataJSON());
       version++;
       reviewStatus = "reversed";
-      return route.fulfill({ json: { receipt: receipt() } });
+      return route.fulfill({ json: { receipt: receipt(), transaction: { id: 'posting-example', review_status: 'reversed' } } });
     }
     if (path.endsWith("/receipts/receipt-example"))
       return route.fulfill({ json: receipt() });

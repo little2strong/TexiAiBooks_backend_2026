@@ -1,0 +1,851 @@
+{
+  "/api/v1/staff/auth/login": {
+    "access_token": "[redacted synthetic token]",
+    "expires_in": 1800,
+    "staff": {
+      "id": "4f9ef6c4-0d00-4f15-81d8-0f96027f2de2",
+      "name": "admin-flow",
+      "email": "admin-flow@browser.example",
+      "role": "admin",
+      "team_id": "1b7acbce-7343-4a82-8738-69a2e1b4010a"
+    }
+  },
+  "/api/v1/staff/config": {
+    "tax_years": [
+      "2025-26",
+      "2026-27"
+    ],
+    "current_tax_year": "2026-27",
+    "idle_timeout_seconds": 900,
+    "upload_max_bytes": 10485760,
+    "categories": [
+      {
+        "id": "c285d199-aa0f-50f6-a259-99e89273c298",
+        "code": "platform_fees",
+        "label_key": "category.platform_fees",
+        "allowed_kinds": [
+          "expense"
+        ],
+        "requires_vehicle": false,
+        "eligibility_reason_codes": [],
+        "default_business_use_percent": "100.00",
+        "version": 1
+      },
+      {
+        "id": "dcd76805-6377-53fb-8612-7129307651ec",
+        "code": "parking",
+        "label_key": "category.parking",
+        "allowed_kinds": [
+          "expense"
+        ],
+        "requires_vehicle": false,
+        "eligibility_reason_codes": [],
+        "default_business_use_percent": "100.00",
+        "version": 1
+      },
+      {
+        "id": "7467b220-d310-558a-8160-1952e21ce2cd",
+        "code": "tolls",
+        "label_key": "category.tolls",
+        "allowed_kinds": [
+          "expense"
+        ],
+        "requires_vehicle": false,
+        "eligibility_reason_codes": [],
+        "default_business_use_percent": "100.00",
+        "version": 1
+      },
+      {
+        "id": "e20d005c-bdbf-55db-be87-28d97a830ff7",
+        "code": "phone_data",
+        "label_key": "category.phone_data",
+        "allowed_kinds": [
+          "expense"
+        ],
+        "requires_vehicle": false,
+        "eligibility_reason_codes": [],
+        "default_business_use_percent": "100.00",
+        "version": 1
+      },
+      {
+        "id": "e8e78c8d-477c-529a-8c50-718ef57537bc",
+        "code": "licensing",
+        "label_key": "category.licensing",
+        "allowed_kinds": [
+          "expense"
+        ],
+        "requires_vehicle": false,
+        "eligibility_reason_codes": [],
+        "default_business_use_percent": "100.00",
+        "version": 1
+      },
+      {
+        "id": "02e550b2-b901-5717-bec5-9e0534988650",
+        "code": "fuel",
+        "label_key": "category.fuel",
+        "allowed_kinds": [
+          "expense"
+        ],
+        "requires_vehicle": true,
+        "eligibility_reason_codes": [],
+        "default_business_use_percent": "100.00",
+        "version": 1
+      },
+      {
+        "id": "c7c03249-6031-5d4f-ab2f-e9b869525f74",
+        "code": "maintenance",
+        "label_key": "category.maintenance",
+        "allowed_kinds": [
+          "expense"
+        ],
+        "requires_vehicle": true,
+        "eligibility_reason_codes": [],
+        "default_business_use_percent": "100.00",
+        "version": 1
+      },
+      {
+        "id": "743f1fa5-1867-5f7a-8b0b-688167dfe4f8",
+        "code": "insurance",
+        "label_key": "category.insurance",
+        "allowed_kinds": [
+          "expense"
+        ],
+        "requires_vehicle": true,
+        "eligibility_reason_codes": [],
+        "default_business_use_percent": "100.00",
+        "version": 1
+      },
+      {
+        "id": "88aa20d7-001a-50b0-aae9-a950577740cd",
+        "code": "cleaning",
+        "label_key": "category.cleaning",
+        "allowed_kinds": [
+          "expense"
+        ],
+        "requires_vehicle": true,
+        "eligibility_reason_codes": [],
+        "default_business_use_percent": "100.00",
+        "version": 1
+      },
+      {
+        "id": "fbae7be3-1173-5ea1-b2c3-8b2d74296a91",
+        "code": "vehicle_purchase",
+        "label_key": "category.vehicle_purchase",
+        "allowed_kinds": [
+          "expense"
+        ],
+        "requires_vehicle": true,
+        "eligibility_reason_codes": [],
+        "default_business_use_percent": "100.00",
+        "version": 1
+      },
+      {
+        "id": "8bd30df2-251c-55c9-bc53-3237f676e83b",
+        "code": "fines",
+        "label_key": "category.fines",
+        "allowed_kinds": [
+          "expense"
+        ],
+        "requires_vehicle": false,
+        "eligibility_reason_codes": [],
+        "default_business_use_percent": "100.00",
+        "version": 1
+      },
+      {
+        "id": "44af9239-3768-5e8c-920d-45635b446469",
+        "code": "meals",
+        "label_key": "category.meals",
+        "allowed_kinds": [
+          "expense"
+        ],
+        "requires_vehicle": false,
+        "eligibility_reason_codes": [],
+        "default_business_use_percent": "100.00",
+        "version": 1
+      },
+      {
+        "id": "739acc7c-d305-5548-a234-48ad7617a51e",
+        "code": "other",
+        "label_key": "category.other",
+        "allowed_kinds": [
+          "expense"
+        ],
+        "requires_vehicle": false,
+        "eligibility_reason_codes": [],
+        "default_business_use_percent": "100.00",
+        "version": 1
+      }
+    ],
+    "sources": [
+      {
+        "id": "94393790-1fbc-5f5d-a934-154a3e3b180d",
+        "code": "uber",
+        "name": "Uber",
+        "kind": "platform",
+        "active": true
+      },
+      {
+        "id": "31f38673-ca41-5b42-88ca-8f614edd2332",
+        "code": "bolt",
+        "name": "Bolt",
+        "kind": "platform",
+        "active": true
+      },
+      {
+        "id": "4ba3715e-c870-53c2-a30f-cb4c7d54f06e",
+        "code": "operator",
+        "name": "Operator",
+        "kind": "operator",
+        "active": true
+      },
+      {
+        "id": "8e68d205-8028-54e2-ab52-7fa46848daef",
+        "code": "cash",
+        "name": "Cash",
+        "kind": "cash",
+        "active": true
+      },
+      {
+        "id": "c1d94107-842d-56b4-9fc2-346f290d9c1c",
+        "code": "other",
+        "name": "Other",
+        "kind": "other",
+        "active": true
+      }
+    ]
+  },
+  "/api/v1/staff/dashboard": {
+    "assigned_drivers": 1,
+    "pending_handoffs": 1,
+    "due_soon": 0,
+    "overdue": 0,
+    "year_not_supplied": 0,
+    "deadline": {
+      "id": "2026-27:online",
+      "label_key": "deadline.self_assessment",
+      "due_on": "2028-01-31",
+      "tax_year": "2026-27",
+      "type": "online_filing_and_balancing",
+      "estimated": false,
+      "amount_pence": null,
+      "days_remaining": 459
+    },
+    "workload": [
+      {
+        "id": "new",
+        "status": "new",
+        "count": 1
+      },
+      {
+        "id": "in_review",
+        "status": "in_review",
+        "count": 0
+      },
+      {
+        "id": "waiting_on_driver",
+        "status": "waiting_on_driver",
+        "count": 0
+      },
+      {
+        "id": "ready_to_file",
+        "status": "ready_to_file",
+        "count": 0
+      },
+      {
+        "id": "filed",
+        "status": "filed",
+        "count": 0
+      }
+    ],
+    "as_of": "2026-10-29T10:13:36.613155+00:00"
+  },
+  "/api/v1/staff/views/search": {
+    "items": []
+  },
+  "/api/v1/staff/handoffs/search": {
+    "items": [
+      {
+        "id": "f31074a9-94dc-4e8d-84a7-88d18530f6cd",
+        "driver_id": "bca2169d-a062-413b-8942-7882a907e864",
+        "tax_year": "2026-27",
+        "status": "new",
+        "filing_reference": null,
+        "version": 1,
+        "driver_name": "Browser Driver",
+        "driver_email": "driver@browser.example",
+        "accountant_id": "cf00a0dc-6cfe-480f-a403-7c14bf26f83e",
+        "accountant_name": "accountant-receipt",
+        "request_type": "filing_question",
+        "created_at": "2026-10-29T10:13:21.104936+00:00",
+        "age_days": 0,
+        "workflow_events": []
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "page_size": 25
+  },
+  "/api/v1/staff/me": {
+    "id": "4f9ef6c4-0d00-4f15-81d8-0f96027f2de2",
+    "name": "admin-flow",
+    "role": "admin",
+    "team_id": "1b7acbce-7343-4a82-8738-69a2e1b4010a",
+    "email": "admin-flow@browser.example"
+  },
+  "/api/v1/staff/drivers/search": {
+    "items": [
+      {
+        "id": "bca2169d-a062-413b-8942-7882a907e864",
+        "name": "Browser Driver",
+        "email": "driver@browser.example",
+        "accountant_id": "cf00a0dc-6cfe-480f-a403-7c14bf26f83e",
+        "accountant_name": "accountant-receipt",
+        "created_at": "2026-10-29T10:13:21.104936+00:00"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "page_size": 25
+  },
+  "/api/v1/staff/drivers/:id/overview": {
+    "id": "bca2169d-a062-413b-8942-7882a907e864",
+    "name": "Browser Driver",
+    "email": "driver@browser.example",
+    "accountant_id": "cf00a0dc-6cfe-480f-a403-7c14bf26f83e",
+    "accountant_name": "accountant-receipt",
+    "created_at": "2026-10-29T10:13:21.104936+00:00",
+    "tax_year": "2026-27",
+    "utr_masked": "******7890",
+    "ni_masked": "*****456C",
+    "driver_profile": {},
+    "subscription": {
+      "status": "none",
+      "entitlements": []
+    },
+    "totals": {
+      "income_pence": 1000000,
+      "deductible_expenses_pence": 0,
+      "profit_pence": 1000000,
+      "business_miles": "0.00",
+      "mileage_deduction_pence": 0,
+      "mileage_threshold_remaining": "0.00",
+      "ledger_version": "bd2e63cb058d73d6783c389ee77390c8eba687f35a5a83bddf0ee20a395efe60",
+      "tax_year": "2026-27",
+      "as_of": "2026-10-29T10:13:47.705939+00:00",
+      "estimated_tax_pence": 0,
+      "has_data": true,
+      "pending_receipts": 1,
+      "unresolved_issues": 0,
+      "unread_notifications": 0,
+      "week_total_pence": 0,
+      "next_deadline": {
+        "id": "2026-27:online",
+        "label_key": "deadline.self_assessment",
+        "due_on": "2028-01-31",
+        "tax_year": "2026-27",
+        "type": "online_filing_and_balancing",
+        "estimated": false,
+        "amount_pence": null
+      },
+      "version": "bd2e63cb058d73d6783c389ee77390c8eba687f35a5a83bddf0ee20a395efe60",
+      "warnings": []
+    },
+    "handoffs": [
+      {
+        "id": "f31074a9-94dc-4e8d-84a7-88d18530f6cd",
+        "driver_id": "bca2169d-a062-413b-8942-7882a907e864",
+        "tax_year": "2026-27",
+        "status": "new",
+        "filing_reference": null,
+        "version": 1,
+        "driver_name": "Browser Driver",
+        "driver_email": "driver@browser.example",
+        "accountant_id": "cf00a0dc-6cfe-480f-a403-7c14bf26f83e",
+        "accountant_name": "accountant-receipt",
+        "request_type": "filing_question",
+        "created_at": "2026-10-29T10:13:21.104936+00:00",
+        "age_days": 0,
+        "workflow_events": []
+      }
+    ]
+  },
+  "/api/v1/staff/drivers/:id/tax": {
+    "estimate": {
+      "id": "7c57344d-69e0-576d-9359-bec7e53df852",
+      "tax_year": "2026-27",
+      "as_of": "2026-10-29",
+      "rule_set_id": "9924d916-22d9-5eff-875b-3047aa395ca8",
+      "profile_version": 1,
+      "ledger_version": "bd2e63cb058d73d6783c389ee77390c8eba687f35a5a83bddf0ee20a395efe60",
+      "income_pence": 1000000,
+      "expense_deduction_pence": 0,
+      "profit_pence": 1000000,
+      "personal_allowance_pence": 1257000,
+      "allowance_used_elsewhere_pence": 0,
+      "income_tax_pence": 0,
+      "paye_tax_paid_pence": 0,
+      "class4_pence": 0,
+      "class2_pence": 0,
+      "student_loan_pence": 0,
+      "savings_tax_pence": 0,
+      "total_pence": 0,
+      "bands": [],
+      "combined_income_pence": 1000000,
+      "warnings": [
+        "estimate_not_assessed_liability",
+        "NI_assumes_working_age_no_special_exemptions",
+        "pension_Gift_Aid_losses_and_other_reliefs_not_modelled"
+      ],
+      "estimate_only": true,
+      "deduction_method": "expenses",
+      "assumptions": [
+        "GBP cash-basis sole trader; no VAT reclaim or capital allowances",
+        "PAYE inputs are annual; ledger is confirmed activity through as_of",
+        "Round each band to nearest penny, half up; not return-box rounding"
+      ]
+    },
+    "payments": {
+      "items": [
+        {
+          "id": "2026-27:online",
+          "label_key": "deadline.self_assessment",
+          "due_on": "2028-01-31",
+          "tax_year": "2026-27",
+          "type": "online_filing_and_balancing",
+          "estimated": false,
+          "amount_pence": null
+        }
+      ],
+      "prior_year_liability_pence": null,
+      "advance_payments_pence": null,
+      "adjustments_pence": null,
+      "warnings": [
+        "Prior assessed liability, outside-SA tax and payments required; no payment amount inferred"
+      ]
+    },
+    "rules": {
+      "id": "9924d916-22d9-5eff-875b-3047aa395ca8",
+      "tax_year": "2026-27",
+      "region": "england_wales_ni",
+      "version": "2026-10-27.1",
+      "rules": [
+        {
+          "code": "income",
+          "value": {
+            "personal_allowance_pence": 1257000,
+            "taper_from_pence": 10000000,
+            "bands": [
+              [
+                3770000,
+                "0.20"
+              ],
+              [
+                12514000,
+                "0.40"
+              ],
+              [
+                null,
+                "0.45"
+              ]
+            ]
+          },
+          "effective_from": "2026-04-06",
+          "effective_to": "2027-04-05",
+          "official_url": "https://www.gov.uk/government/publications/rates-and-allowances-income-tax/income-tax-rates-and-allowances-current-and-past",
+          "verified_at": "2026-10-27T00:00:00Z"
+        },
+        {
+          "code": "class4",
+          "value": {
+            "lower_pence": 1257000,
+            "upper_pence": 5027000,
+            "rates": [
+              "0.06",
+              "0.02"
+            ],
+            "class2_compulsory_pence": 0
+          },
+          "effective_from": "2026-04-06",
+          "effective_to": "2027-04-05",
+          "official_url": "https://www.gov.uk/self-employed-national-insurance-rates",
+          "verified_at": "2026-10-27T00:00:00Z"
+        },
+        {
+          "code": "mileage",
+          "value": {
+            "first_band_miles": "10000.00",
+            "first_rate_pence": 55,
+            "remaining_rate_pence": 25,
+            "motorcycle_rate_pence": 24
+          },
+          "effective_from": "2026-04-06",
+          "effective_to": "2027-04-05",
+          "official_url": "https://www.gov.uk/simpler-income-tax-simplified-expenses/vehicles",
+          "verified_at": "2026-10-27T00:00:00Z"
+        },
+        {
+          "code": "trading",
+          "value": {
+            "allowance_pence": 100000,
+            "eligibility_declaration_required": true
+          },
+          "effective_from": "2026-04-06",
+          "effective_to": "2027-04-05",
+          "official_url": "https://www.gov.uk/guidance/tax-free-allowances-on-property-and-trading-income",
+          "verified_at": "2026-10-27T00:00:00Z"
+        },
+        {
+          "code": "poa",
+          "value": {
+            "minimum_bill_pence": 100000,
+            "outside_sa_exemption_percent": "80"
+          },
+          "effective_from": "2026-04-06",
+          "effective_to": "2027-04-05",
+          "official_url": "https://www.gov.uk/understand-self-assessment-bill/payments-on-account",
+          "verified_at": "2026-10-27T00:00:00Z"
+        },
+        {
+          "code": "savings",
+          "value": {
+            "starting_rate_max_pence": 500000,
+            "basic_psa_pence": 100000,
+            "higher_psa_pence": 50000
+          },
+          "effective_from": "2026-04-06",
+          "effective_to": "2027-04-05",
+          "official_url": "https://www.gov.uk/apply-tax-free-interest-on-savings",
+          "verified_at": "2026-10-27T00:00:00Z"
+        },
+        {
+          "code": "student_loans",
+          "value": {
+            "single_plan_only": true,
+            "unearned_income_inclusion_threshold_pence": 200000,
+            "verified_plan_tax_year": "2026-27",
+            "thresholds_pence": {
+              "plan1": 2690000,
+              "plan2": 2938500,
+              "plan4": 3379500,
+              "plan5": 2500000,
+              "postgraduate": 2100000
+            },
+            "rates": {
+              "undergraduate": "0.09",
+              "postgraduate": "0.06"
+            }
+          },
+          "effective_from": "2026-04-06",
+          "effective_to": "2027-04-05",
+          "official_url": "https://www.gov.uk/guidance/tell-hmrc-about-a-student-loan-in-your-tax-return",
+          "verified_at": "2026-10-27T00:00:00Z"
+        },
+        {
+          "code": "marriage",
+          "value": {
+            "transfer_pence": 126000,
+            "recipient_reduction_pence": 25200,
+            "declaration_required": true
+          },
+          "effective_from": "2026-04-06",
+          "effective_to": "2027-04-05",
+          "official_url": "https://www.gov.uk/marriage-allowance",
+          "verified_at": "2026-10-27T00:00:00Z"
+        }
+      ]
+    },
+    "calculation_context": {
+      "region": "england_wales_ni",
+      "has_paye_job": false,
+      "employments": []
+    }
+  },
+  "/api/v1/staff/accountants/search": {
+    "items": [
+      {
+        "id": "cf00a0dc-6cfe-480f-a403-7c14bf26f83e",
+        "name": "accountant-receipt",
+        "role": "accountant",
+        "team_id": "1b7acbce-7343-4a82-8738-69a2e1b4010a",
+        "email": "accountant-receipt@browser.example"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "page_size": 25
+  },
+  "/api/v1/staff/drivers/:id/income/search": {
+    "items": [
+      {
+        "business_id": "1cc634c2-1ef2-454f-9c3f-3f69e1ab67e0",
+        "kind": "income",
+        "amount_pence": 1000000,
+        "currency": "GBP",
+        "occurred_on": "2026-10-20",
+        "source_id": "94393790-1fbc-5f5d-a934-154a3e3b180d",
+        "category_id": null,
+        "vehicle_id": null,
+        "receipt_id": null,
+        "legacy_expense_id": null,
+        "payment_method": "other",
+        "description": "Synthetic platform earnings",
+        "no_receipt_reason": null,
+        "business_use_percent": "100.00",
+        "business_use_override": true,
+        "deductible_pence": 0,
+        "review_status": "confirmed",
+        "claim_status": "claimable",
+        "eligibility_reason_codes": [],
+        "import_origin_key": null,
+        "mutation_id": null,
+        "id": "e2ed1955-4979-4a78-9ccb-0abc1efa75ed",
+        "version": 1,
+        "created_at": "2026-10-29T10:13:21.104936+00:00",
+        "category_name": "Uncategorised",
+        "source_name": "Uber",
+        "ai_category": null,
+        "ai_confidence": null,
+        "ai_reason": [],
+        "receipt_version": null,
+        "reviewed_by": null,
+        "reviewed_at": null
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "page_size": 25
+  },
+  "/api/v1/staff/drivers/:id/mileage/search": {
+    "items": [],
+    "total": 0,
+    "page": 1,
+    "page_size": 25,
+    "summary": {
+      "business_miles": "0.00",
+      "deduction_pence": 0,
+      "threshold_remaining": "0.00"
+    }
+  },
+  "/api/v1/staff/drivers/:id/receipts/search": {
+    "items": [
+      {
+        "file_id": "bb162869-2b5d-4321-8e78-c2dcb91b7b26",
+        "business_id": "1cc634c2-1ef2-454f-9c3f-3f69e1ab67e0",
+        "vehicle_id": null,
+        "processing_status": "queued",
+        "review_status": "pending",
+        "claim_status": "unknown",
+        "extraction": null,
+        "reviewed": {
+          "merchant": "Browser receipt",
+          "category_id": "e20d005c-bdbf-55db-be87-28d97a830ff7",
+          "occurred_on": "2026-10-20",
+          "amount_pence": 10000,
+          "business_use_percent": "100"
+        },
+        "job_id": null,
+        "mutation_id": null,
+        "id": "f2c02120-9b40-4233-a5ca-a09e329491ba",
+        "version": 1,
+        "created_at": "2026-10-29T10:13:21.104936+00:00",
+        "merchant": "Browser receipt",
+        "category_id": "e20d005c-bdbf-55db-be87-28d97a830ff7",
+        "occurred_on": "2026-10-20",
+        "amount_pence": 10000,
+        "business_use_percent": "100",
+        "transaction_id": null,
+        "deductible_pence": null,
+        "job": null,
+        "warnings": [],
+        "raw_extraction": null
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "page_size": 25
+  },
+  "/api/v1/staff/drivers/:id/expenses/search": {
+    "items": [],
+    "total": 0,
+    "page": 1,
+    "page_size": 25
+  },
+  "/api/v1/staff/drivers/:id/documents/search": {
+    "items": [
+      {
+        "id": "bb162869-2b5d-4321-8e78-c2dcb91b7b26",
+        "mime_type": "image/png",
+        "size_bytes": 30,
+        "scan_status": "pending",
+        "created_at": "2026-10-29T10:13:21.104936+00:00"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "page_size": 25
+  },
+  "/api/v1/staff/drivers/:id/messages/search": {
+    "items": [],
+    "total": 0,
+    "page": 1,
+    "page_size": 25
+  },
+  "/api/v1/staff/drivers/:id/notes/search": {
+    "items": [],
+    "total": 0,
+    "page": 1,
+    "page_size": 25
+  },
+  "/api/v1/staff/drivers/:id/activity/search": {
+    "items": [
+      {
+        "id": "185bb578-5a67-43ee-8233-1d6c42797279",
+        "created_at": "2026-10-29T10:13:57.332150+00:00",
+        "action": "notes_view",
+        "before": null,
+        "resource_id": null,
+        "after": {
+          "ids": []
+        },
+        "actor_name": "admin-flow"
+      },
+      {
+        "id": "de3355ab-1dd0-4048-ba03-9c327d63b76e",
+        "created_at": "2026-10-29T10:13:57.308649+00:00",
+        "action": "messages_view",
+        "before": null,
+        "resource_id": null,
+        "after": {
+          "ids": []
+        },
+        "actor_name": "admin-flow"
+      },
+      {
+        "id": "d0235204-9e48-4fb3-bdda-274b3c2589ea",
+        "created_at": "2026-10-29T10:13:57.284334+00:00",
+        "action": "documents_view",
+        "before": null,
+        "resource_id": null,
+        "after": {
+          "ids": [
+            "bb162869-2b5d-4321-8e78-c2dcb91b7b26"
+          ]
+        },
+        "actor_name": "admin-flow"
+      },
+      {
+        "id": "13a36659-50ae-4fb7-80ee-91707a59b9a5",
+        "created_at": "2026-10-29T10:13:57.215073+00:00",
+        "action": "expenses_view",
+        "before": null,
+        "resource_id": null,
+        "after": {
+          "ids": []
+        },
+        "actor_name": "admin-flow"
+      },
+      {
+        "id": "0eca7cbf-5df9-4b0c-9e10-dd090ebae1da",
+        "created_at": "2026-10-29T10:13:57.016047+00:00",
+        "action": "receipts_view",
+        "before": null,
+        "resource_id": null,
+        "after": {
+          "ids": [
+            "f2c02120-9b40-4233-a5ca-a09e329491ba"
+          ]
+        },
+        "actor_name": "admin-flow"
+      },
+      {
+        "id": "05b810dc-55c9-4f34-b260-040b79630937",
+        "created_at": "2026-10-29T10:13:56.991232+00:00",
+        "action": "mileage_view",
+        "before": null,
+        "resource_id": null,
+        "after": {
+          "ids": []
+        },
+        "actor_name": "admin-flow"
+      },
+      {
+        "id": "a17d45ab-0c7e-4575-8679-6a13adedf18a",
+        "created_at": "2026-10-29T10:13:56.953542+00:00",
+        "action": "income_view",
+        "before": null,
+        "resource_id": null,
+        "after": {
+          "ids": [
+            "e2ed1955-4979-4a78-9ccb-0abc1efa75ed"
+          ]
+        },
+        "actor_name": "admin-flow"
+      },
+      {
+        "id": "d4d5d6cf-3be5-4b16-b010-c849211449df",
+        "created_at": "2026-10-29T10:13:53.510832+00:00",
+        "action": "tax_view",
+        "before": null,
+        "resource_id": null,
+        "after": null,
+        "actor_name": "admin-flow"
+      },
+      {
+        "id": "62fa6695-9e20-4218-897c-0230704cfd02",
+        "created_at": "2026-10-29T10:13:47.613537+00:00",
+        "action": "financial_overview_view",
+        "before": null,
+        "resource_id": null,
+        "after": null,
+        "actor_name": "admin-flow"
+      },
+      {
+        "id": "571c3b31-48f8-405e-9c5d-f0501b351dc5",
+        "created_at": "2026-10-29T10:13:45.945881+00:00",
+        "action": "driver_list_view",
+        "before": null,
+        "resource_id": null,
+        "after": null,
+        "actor_name": "admin-flow"
+      }
+    ],
+    "total": 10,
+    "page": 1,
+    "page_size": 25
+  },
+  "/api/v1/staff/drivers/:id/receipts/:id": {
+    "file_id": "bb162869-2b5d-4321-8e78-c2dcb91b7b26",
+    "business_id": "1cc634c2-1ef2-454f-9c3f-3f69e1ab67e0",
+    "vehicle_id": null,
+    "processing_status": "queued",
+    "review_status": "pending",
+    "claim_status": "unknown",
+    "extraction": null,
+    "reviewed": {
+      "merchant": "Browser receipt",
+      "category_id": "e20d005c-bdbf-55db-be87-28d97a830ff7",
+      "occurred_on": "2026-10-20",
+      "amount_pence": 10000,
+      "business_use_percent": "100"
+    },
+    "job_id": null,
+    "mutation_id": null,
+    "id": "f2c02120-9b40-4233-a5ca-a09e329491ba",
+    "version": 1,
+    "created_at": "2026-10-29T10:13:21.104936+00:00",
+    "merchant": "Browser receipt",
+    "category_id": "e20d005c-bdbf-55db-be87-28d97a830ff7",
+    "occurred_on": "2026-10-20",
+    "amount_pence": 10000,
+    "business_use_percent": "100",
+    "transaction_id": null,
+    "deductible_pence": null,
+    "job": null,
+    "warnings": [],
+    "raw_extraction": null,
+    "scan_status": "pending",
+    "mime_type": "image/png",
+    "reviewed_by": null,
+    "reviewed_at": null
+  }
+}

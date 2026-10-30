@@ -13,6 +13,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { request } from "../api/client";
 import { authProvider } from "../api/providers";
 import { useSession } from "../auth/context";
+import { session } from '../auth/session';
 import { ThemeToggle } from "../components/ThemeToggle";
 import { LoginShowcase } from "../components/LoginShowcase";
 import "./login.css";
@@ -23,7 +24,7 @@ export function Login() {
   const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>("login");
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
+  const [notice, setNotice] = useState(session.notice() || '');
   const [busy, setBusy] = useState(false);
   const [form] = Form.useForm();
   const changeMode = (next: Mode) => {

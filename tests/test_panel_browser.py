@@ -29,7 +29,20 @@ from app.services.vault import encrypt
 def test_live_panel_browser(postgres_engine, settings):
     root = Path(__file__).resolve().parents[1]
     npm = "npm.cmd" if os.name == "nt" else "npm"
-    build = subprocess.run([npm, "run", "build"], cwd=root / "accountant-panel", capture_output=True, text=True, timeout=120)
+    build_args = [npm, "run", "build"]
+    if os.environ.get("PANEL_EVIDENCE_MODE") == "before":
+        # The source-only snapshot predates this debugging change. Keep the
+        # active worktree untouched while reproducing the original production UI.
+        import zipfile
+        baseline = root / "accountant-panel/.ui-baseline"
+        with zipfile.ZipFile(root / "artifacts/ui-debug/before-source.zip") as archive:
+            for name in archive.namelist():
+                if name.startswith("accountant-panel/"):
+                    target = baseline / Path(name).relative_to("accountant-panel")
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(archive.read(name))
+        build_args = [npm, "exec", "--", "vite", "build", ".ui-baseline", "--config", "vite.config.ts", "--outDir", "../dist", "--emptyOutDir"]
+    build = subprocess.run(build_args, cwd=root / "accountant-panel", capture_output=True, text=True, timeout=120)
     assert build.returncode == 0, build.stdout + build.stderr
     settings.identifier_encryption_keys = [SecretStr(Fernet.generate_key().decode())]
     password = secrets.token_urlsafe(24)
@@ -74,7 +87,19 @@ def test_live_panel_browser(postgres_engine, settings):
             except OSError:
                 if time.monotonic() > deadline: pytest.fail("Owned browser API did not start")
                 time.sleep(.2)
-        result = subprocess.run([npm, "run", "test:e2e"], cwd=root / "accountant-panel", env=env, capture_output=True, text=True, timeout=300)
+        browser_args = [npm, "run", "test:e2e"]
+        if env.get("PANEL_EVIDENCE_MODE"):
+            browser_args += ["--", "e2e/evidence.spec.ts"]
+        elif env.get("PANEL_DIAGNOSTICS"):
+            browser_args += ["--", "e2e/diagnostics.spec.ts"]
+        result = subprocess.run(browser_args, cwd=root / "accountant-panel", env=env, capture_output=True, text=True, timeout=300)
+        evidence = root / "artifacts/ui-debug/validation"
+        evidence.mkdir(parents=True, exist_ok=True)
+        name = "react-diagnostics" if env.get("PANEL_DIAGNOSTICS") else "evidence-" + env["PANEL_EVIDENCE_MODE"] if env.get("PANEL_EVIDENCE_MODE") else "browser-suite"
+        import re
+        log = (result.stdout + result.stderr).replace(password, "[redacted]")
+        log = re.sub(r"eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+", "[redacted JWT]", log)
+        (evidence / f"{name}.txt").write_text(log, encoding="utf-8")
         assert result.returncode == 0, result.stdout + result.stderr
     finally:
         server.terminate()

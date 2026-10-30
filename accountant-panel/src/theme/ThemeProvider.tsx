@@ -3,6 +3,8 @@ import {
   useContext,
   useLayoutEffect,
   useState,
+  useCallback,
+  useMemo,
   type ReactNode,
 } from "react";
 import { ConfigProvider } from "antd";
@@ -45,16 +47,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
     setConfig(getAntdTheme(dark, reducedMotion));
   }, [dark, reducedMotion]);
-  const setMode = (next: ThemeMode) => {
+  const setMode = useCallback((next: ThemeMode) => {
     setPreference({ key, mode: next });
     try {
       localStorage.setItem(key, next);
     } catch {
       /* The in-memory choice still works. */
     }
-  };
+  }, [key]);
+  const contextValue = useMemo(() => ({ mode, dark, setMode }), [mode, dark, setMode]);
   return (
-    <ThemeContext.Provider value={{ mode, dark, setMode }}>
+    <ThemeContext.Provider value={contextValue}>
       <ConfigProvider locale={enGB} theme={config}>
         {children}
       </ConfigProvider>

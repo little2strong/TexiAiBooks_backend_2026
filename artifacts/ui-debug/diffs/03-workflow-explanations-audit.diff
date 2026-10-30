@@ -1,0 +1,1253 @@
+--- a/accountant-panel/src/pages/Dashboard.tsx
++++ b/accountant-panel/src/pages/Dashboard.tsx
+@@ -1,40 +1,41 @@
+-import { useState } from 'react';
+-import { useQuery } from '@tanstack/react-query';
+-import { Alert, Button, Progress } from 'antd';
+-import { ArrowRight, Car, ClipboardCheck, Clock3, CircleAlert } from 'lucide-react';
+-import { useNavigate } from 'react-router-dom';
+-import { api } from '../api/client';
+-import { useSession, useWorkspace } from '../auth/context';
+-import { date, datetime, label } from '../lib/format';
+-import { QueryState } from '../components/States';
+-import { HandoffTable } from './Handoffs';
+-import { initialQuery } from '../api/types';
+-import { CountUp } from '../theme/motion';
+-
+-export function DashboardPage() {
+-  const { year } = useWorkspace();
+-  const active = useSession()!;
+-  const navigate = useNavigate();
+-  const [query, setQuery] = useState({ ...initialQuery, page_size: 10 });
+-  const result = useQuery({ queryKey: ['dashboard', year], queryFn: ({ signal }) => api.dashboard(year, signal) });
+-  const data = result.data;
+-  const stats = data ? [
+-    { label: active.staff.role === 'admin' || active.staff.role === 'support' ? 'Visible drivers' : 'Assigned drivers', value: data.assigned_drivers, icon: <Car />, note: 'Within your access scope', className: 'mint' },
+-    { label: 'Pending handoffs', value: data.pending_handoffs, icon: <ClipboardCheck />, note: 'Awaiting review or filing', className: 'blue' },
+-    { label: 'Returns due soon', value: data.due_soon, icon: <Clock3 />, note: 'Due in the next 30 days', className: 'amber' },
+-    { label: 'Overdue returns', value: data.overdue, icon: <CircleAlert />, note: 'Past the supplied-year deadline', className: 'rose' },
+-  ] : [];
+-  return <><div className="page-heading"><div><span className="eyebrow">YOUR PRACTICE, AT A GLANCE</span><h1>Welcome, {active.staff.name.split(' ')[0]}</h1><p>A clear view of your drivers, reviews and what needs attention.</p></div>
+-    <Button type="primary" onClick={() => navigate('/handoffs')} icon={<ArrowRight />} iconPlacement="end">Open handoff queue</Button></div>
+-    <QueryState pending={result.isPending} error={result.error} retry={result.refetch}>{data && <>
+-      <div className="stat-grid">{stats.map(stat => <div className="surface stat-card" key={stat.label}><div className="stat-card-top"><span>{stat.label}</span><span className={`stat-icon ${stat.className}`}>{stat.icon}</span></div><strong><CountUp value={stat.value} /></strong><small>{stat.note}</small></div>)}</div>
+-      <div className="dashboard-middle"><section className="deadline-card"><span className="eyebrow">SELF ASSESSMENT · {year}</span><div className="deadline-main"><div><h2>{data.deadline.days_remaining >= 0 ? `${data.deadline.days_remaining} days to go` : `${Math.abs(data.deadline.days_remaining)} days overdue`}</h2><p>Online filing & balancing deadline</p></div><span className="deadline-icon"><Clock3 /></span></div>
+-        <div className="deadline-footer"><strong>{date(data.deadline.due_on)}</strong><span>Self Assessment · Online deadline</span></div></section>
+-        <section className="surface workload-card"><div className="section-heading"><h2>My workload</h2><span className="muted">{year}</span></div>
+-          {data.workload.map(item => <button key={item.id} className={`workload-row workload-${item.status}`} onClick={() => navigate('/handoffs', { state: { status: item.status } })}><span>{label(item.status)}</span><Progress aria-label={`${label(item.status)} workload`} percent={data.workload.reduce((sum, row) => sum + row.count, 0) ? item.count / data.workload.reduce((sum, row) => sum + row.count, 0) * 100 : 0} showInfo={false} strokeColor="var(--workload-color, var(--brand-primary))" size="small" /><strong>{item.count}</strong></button>)}</section></div>
+-      {data.year_not_supplied > 0 && <Alert type="warning" showIcon title={`${data.year_not_supplied} handoff(s) have no supplied tax year. They are included in pending work, but not in deadline counts.`} className="section-gap" />}
+-      <div className="section-heading"><div><h2>Handoffs to keep moving</h2><p className="muted">Actual requests for accountant help · {year}</p></div><small className="muted">Updated {datetime(data.as_of)}</small></div>
+-      <HandoffTable query={{ ...query, filters: { ...query.filters, tax_year: year } }} onQuery={setQuery} compact />
+-    </>}</QueryState>
+-  </>;
+-}
++import { useState } from 'react';
++import { useQuery } from '@tanstack/react-query';
++import { Alert, Button, Progress } from 'antd';
++import { ArrowRight, Car, ClipboardCheck, Clock3, CircleAlert } from 'lucide-react';
++import { useNavigate } from 'react-router-dom';
++import { api } from '../api/client';
++import { useSession, useWorkspace } from '../auth/context';
++import { date, datetime, label } from '../lib/format';
++import { QueryState } from '../components/States';
++import { HandoffTable } from './Handoffs';
++import { initialQuery } from '../api/types';
++import { ExplainNumber } from '../components/ExplainNumber';
++import { statusGlossary } from '../lib/business';
++
++export function DashboardPage() {
++  const { year } = useWorkspace();
++  const active = useSession()!;
++  const navigate = useNavigate();
++  const [query, setQuery] = useState({ ...initialQuery, page_size: 10 });
++  const result = useQuery({ queryKey: ['dashboard', year], queryFn: ({ signal }) => api.dashboard(year, signal) });
++  const data = result.data;
++  const stats = data ? [
++    { label: active.staff.role === 'admin' || active.staff.role === 'support' ? 'Visible drivers' : 'Assigned drivers', value: data.assigned_drivers, icon: <Car />, note: 'Within your access scope', className: 'mint' },
++    { label: 'Pending handoffs', value: data.pending_handoffs, icon: <ClipboardCheck />, note: 'Awaiting review or filing', className: 'blue' },
++    { label: 'Returns due soon', value: data.due_soon, icon: <Clock3 />, note: 'Due in the next 30 days', className: 'amber' },
++    { label: 'Overdue returns', value: data.overdue, icon: <CircleAlert />, note: 'Past the supplied-year deadline', className: 'rose' },
++  ] : [];
++  return <><div className="page-heading"><div><span className="eyebrow">YOUR PRACTICE, AT A GLANCE</span><h1>Welcome, {active.staff.name.split(' ')[0]}</h1><p>A clear view of your drivers, reviews and what needs attention.</p></div>
++    <Button type="primary" onClick={() => navigate('/handoffs')} icon={<ArrowRight />} iconPlacement="end">Open handoff queue</Button></div>
++    <QueryState layout="dashboard" pending={result.isPending} error={result.error} retry={result.refetch}>{data && <>
++      <div className="stat-grid">{stats.map(stat => <div className="surface stat-card" key={stat.label}><div className="stat-card-top"><span className="number-label">{stat.label}<ExplainNumber name={stat.label} year={year}><p>Returned count: {stat.value}. Source: staff dashboard API, access scope for {active.staff.role}; updated {datetime(data.as_of)}.</p></ExplainNumber></span><span className={`stat-icon ${stat.className}`}>{stat.icon}</span></div><strong>{stat.value.toLocaleString()}</strong><small>{stat.note}</small></div>)}</div>
++      <div className="dashboard-middle"><section className="deadline-card"><span className="eyebrow">SELF ASSESSMENT · {year}</span><div className="deadline-main"><div><h2><ExplainNumber name="Days to deadline" year={year} />{data.deadline.days_remaining >= 0 ? `${data.deadline.days_remaining} days to go` : `${Math.abs(data.deadline.days_remaining)} days overdue`}</h2><p>Online filing & balancing deadline</p></div><span className="deadline-icon"><Clock3 /></span></div>
++        <div className="deadline-footer"><strong>{date(data.deadline.due_on)}</strong><span>Self Assessment · Online deadline</span></div></section>
++        <section className="surface workload-card"><div className="section-heading"><h2>My workload<ExplainNumber name="Workload" year={year} /></h2><span className="muted">{year}</span></div>
++          {data.workload.map(item => <button key={item.id} className={`workload-row workload-${item.status}`} onClick={() => navigate('/handoffs', { state: { status: item.status } })}><span title={`${statusGlossary[item.status].meaning} Next owner: ${statusGlossary[item.status].owner}. ${statusGlossary[item.status].trigger}`}>{label(item.status)}</span><Progress aria-label={`${label(item.status)} workload`} percent={data.workload.reduce((sum, row) => sum + row.count, 0) ? item.count / data.workload.reduce((sum, row) => sum + row.count, 0) * 100 : 0} showInfo={false} strokeColor="var(--workload-color, var(--brand-primary))" size="small" /><strong>{item.count}</strong></button>)}</section></div>
++      {data.year_not_supplied > 0 && <Alert type="warning" showIcon title={`${data.year_not_supplied} handoff(s) have no supplied tax year. They are included in pending work, but not in deadline counts.`} className="section-gap" />}
++      <div className="section-heading"><div><h2>Handoffs to keep moving</h2><p className="muted">Actual requests for accountant help · {year}</p></div><small className="muted">Updated {datetime(data.as_of)}</small></div>
++      <HandoffTable query={{ ...query, filters: { ...query.filters, tax_year: year } }} onQuery={setQuery} compact />
++    </>}</QueryState>
++  </>;
++}
+--- a/accountant-panel/src/pages/DriverProfile.tsx
++++ b/accountant-panel/src/pages/DriverProfile.tsx
+@@ -1,263 +1,274 @@
+-import { useCallback, useEffect, useMemo, useState } from 'react';
+-import { useQuery, useQueryClient } from '@tanstack/react-query';
+-import { Alert, App, Avatar, Button, Descriptions, Empty, Form, Input, Modal, Select, Space, Tabs, Tag, Tooltip, Upload } from 'antd';
+-import { ArrowLeft, Download, EyeOff, Eye, FileImage, Send, Upload as UploadIcon } from 'lucide-react';
+-import { Link, useParams } from 'react-router-dom';
+-import type { ColumnDef } from '@tanstack/react-table';
+-import { api, download } from '../api/client';
+-import { useSession, useWorkspace } from '../auth/context';
+-import { can } from '../auth/permissions';
+-import { initialQuery, type Document, type Entry, type Mileage, type Overview, type Page, type Receipt, type TableQuery, type Transaction } from '../api/types';
+-import { AuditTimeline } from '../components/AuditTimeline';
+-import { DataTable } from '../components/DataTable';
+-import { ReceiptViewer } from '../components/ReceiptViewer';
+-import { RoleGuard } from '../components/RoleGuard';
+-import { QueryState } from '../components/States';
+-import { StatusBadge } from '../components/StatusBadge';
+-import { date, datetime, initials, label, money } from '../lib/format';
+-import { AiIndicator, ConfidenceBar } from '../components/AiIndicator';
+-
+-function RevealField({ driverId, field, masked }: { driverId: string; field: 'utr' | 'ni_number'; masked: string | null }) {
+-  const { year } = useWorkspace();
+-  const [revealed, setRevealed] = useState<string | null>(null);
+-  const [open, setOpen] = useState(false);
+-  const [reason, setReason] = useState('');
+-  const [busy, setBusy] = useState(false);
+-  const { message } = App.useApp();
+-  useEffect(() => { setRevealed(null); }, [year, driverId]);
+-  useEffect(() => {
+-    if (!revealed) return;
+-    const timer = setTimeout(() => setRevealed(null), 30000);
+-    const hide = () => { if (document.hidden) setRevealed(null); };
+-    const blur = () => setRevealed(null);
+-    document.addEventListener('visibilitychange', hide);
+-    window.addEventListener('blur', blur);
+-    return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', hide); window.removeEventListener('blur', blur); };
+-  }, [revealed]);
+-  const reveal = async () => {
+-    setBusy(true);
+-    try { const result = await api.reveal(driverId, { field, tax_year: year, reason: reason.trim() }); setRevealed(result.value); setOpen(false); setReason(''); }
+-    catch (error) { void message.error((error as Error).message); }
+-    finally { setBusy(false); }
+-  };
+-  return <><Space><span className="identifier">{revealed || masked || 'Not supplied'}</span>{masked && <RoleGuard action="reveal"><Button size="small" type="text" icon={revealed ? <EyeOff /> : <Eye />} aria-label={`${revealed ? 'Hide' : 'Reveal'} ${field === 'utr' ? 'UTR' : 'NI number'}`} onClick={() => revealed ? setRevealed(null) : setOpen(true)} /></RoleGuard>}</Space>
+-    <Modal title={`Reveal ${field === 'utr' ? 'UTR' : 'NI number'}`} open={open} onCancel={() => { setOpen(false); setReason(''); }} onOk={() => void reveal()} okText="Reveal & audit" confirmLoading={busy} okButtonProps={{ disabled: reason.trim().length < 5 }}>
+-      <Alert type="warning" title="This access will be audited" description="The value automatically hides after 30 seconds or when you leave this window." className="form-alert" />
+-      <label htmlFor={`reason-${field}`}>Reason for access</label><Input.TextArea id={`reason-${field}`} value={reason} maxLength={500} onChange={event => setReason(event.target.value)} rows={3} />
+-    </Modal></>;
+-}
+-
+-function OverviewTab({ data }: { data: Overview }) {
+-  return <div className="profile-overview-grid"><section className="surface profile-card"><h2>Personal & tax details</h2><Descriptions column={1} items={[
+-    { key: 'name', label: 'Driver', children: data.name }, { key: 'email', label: 'Email', children: data.email || 'Not supplied' },
+-    { key: 'utr', label: 'UTR', children: <RevealField driverId={data.id} field="utr" masked={data.utr_masked} /> },
+-    { key: 'ni', label: 'NI number', children: <RevealField driverId={data.id} field="ni_number" masked={data.ni_masked} /> },
+-    { key: 'accountant', label: 'Accountant', children: data.accountant_name || 'Unassigned' },
+-    { key: 'joined', label: 'Joined', children: date(data.created_at) },
+-  ]} /></section><section className="surface profile-card"><h2>Driving & subscription</h2><Descriptions column={1} items={[
+-    { key: 'licence', label: 'Licence', children: data.driver_profile.licence_type ? label(data.driver_profile.licence_type) : 'Not supplied' },
+-    { key: 'council', label: 'Council code', children: data.driver_profile.council_code || 'Not supplied' },
+-    { key: 'work', label: 'Work pattern', children: data.driver_profile.work_pattern ? label(data.driver_profile.work_pattern) : 'Not supplied' },
+-    { key: 'subscription', label: 'Billing status', children: <StatusBadge status={data.subscription.status} /> },
+-    { key: 'plan', label: 'Plan reference', children: data.subscription.plan_id || 'No approved plan assigned' },
+-  ]} /><Alert type="info" title="Bank details are not collected by this backend" description="No bank details are inferred from uploaded evidence." /></section></div>;
+-}
+-
+-function LedgerTab({ driverId, kind }: { driverId: string; kind: 'income' | 'expenses' }) {
+-  const { year, config } = useWorkspace();
+-  const [query, setQuery] = useState<TableQuery>({ ...initialQuery, sort: 'occurred_on' });
+-  const [receipt, setReceipt] = useState<string | null>(null);
+-  const [rows, setRows] = useState<Transaction[]>([]);
+-  const [editing, setEditing] = useState<Transaction | null>(null);
+-  const [busy, setBusy] = useState(false);
+-  const [form] = Form.useForm();
+-  const cache = useQueryClient();
+-  const { message } = App.useApp();
+-  const capture = useCallback((data: Page<Transaction>) => setRows(data.items), []);
+-  const actualQuery = useMemo(() => ({ ...query, filters: { ...query.filters, tax_year: year } }), [query, year]);
+-  const columns = useMemo<ColumnDef<Transaction>[]>(() => [
+-    { accessorKey: 'occurred_on', header: 'Date', cell: ({ row }) => date(row.original.occurred_on) },
+-    { accessorKey: 'description', header: kind === 'income' ? 'Earnings' : 'Expense', enableSorting: false, cell: ({ row }) => <div className="record-description"><strong>{row.original.description || 'Description not supplied'}</strong><small>{kind === 'income' ? row.original.source_name || 'Source not supplied' : row.original.category_name}</small></div> },
+-    { accessorKey: 'amount_pence', header: 'Amount', cell: ({ row }) => <span className="money-cell" data-negative={row.original.amount_pence < 0}>{money(row.original.amount_pence)}</span> },
+-    ...(kind === 'expenses' ? [{ id: 'deductible', header: 'Deductible', enableSorting: false, cell: ({ row }: { row: { original: Transaction } }) => <span className="money-cell">{money(row.original.deductible_pence)}<small className="cell-small">{row.original.business_use_percent}% business</small></span> } as ColumnDef<Transaction>] : []),
+-    { accessorKey: 'review_status', header: 'Review', cell: ({ row }) => <StatusBadge status={row.original.review_status} /> },
+-    ...(kind === 'expenses' ? [{ id: 'ai', header: 'AI suggestion', enableSorting: false, cell: ({ row }: { row: { original: Transaction } }) => row.original.review_status === 'confirmed' ? <AiIndicator reviewed /> : row.original.ai_category ? <Tooltip title={row.original.ai_reason?.join('; ') || 'No explanation supplied by OCR'}><div><AiIndicator /><small className="cell-small">{label(config.categories.find(c => c.id === row.original.ai_category)?.code || 'Category supplied')}</small><ConfidenceBar confidence={row.original.ai_confidence} /></div></Tooltip> : <span className="muted">No suggestion</span> } as ColumnDef<Transaction>] : []),
+-    { id: 'evidence', header: 'Evidence / review', enableSorting: false, cell: ({ row }) => <Space>{row.original.receipt_id ? <Button size="small" icon={<FileImage />} onClick={() => setReceipt(row.original.receipt_id)}>Receipt</Button> : <span className="muted">No receipt</span>}
+-      {kind === 'expenses' && !row.original.receipt_id && !row.original.import_origin_key && row.original.review_status !== 'reversed' && <RoleGuard action="edit"><Button size="small" onClick={() => { setEditing(row.original); form.setFieldsValue({ category_id: row.original.category_id }); }}>Recategorise</Button></RoleGuard>}</Space> },
+-  ], [kind, config.categories, form]);
+-  const recategorise = async (values: { category_id: string }) => {
+-    if (!editing) return;
+-    setBusy(true);
+-    try {
+-      await api.mutate(`/drivers/${driverId}/expenses/${editing.id}`, { expected_version: editing.version, category_id: values.category_id }, 'PATCH');
+-      setEditing(null); await cache.invalidateQueries({ queryKey: ['table'] }); await cache.invalidateQueries({ queryKey: ['overview', driverId] }); await cache.invalidateQueries({ queryKey: ['tax', driverId] });
+-      void message.success('Category corrected. Eligibility was recalculated by the backend.');
+-    } catch (error) { void message.error((error as Error).message); }
+-    finally { setBusy(false); }
+-  };
+-  const receiptIds = [...new Set(rows.map(row => row.receipt_id).filter((id): id is string => Boolean(id)))];
+-  const nextIndex = receipt ? receiptIds.indexOf(receipt) + 1 : -1;
+-  return <><DataTable title={kind === 'income' ? 'Income' : 'Expenses'} resource={`drivers/${driverId}/${kind}`} query={actualQuery} onQuery={setQuery} columns={columns} onData={capture}
+-    toolbar={<Select allowClear aria-label={`Filter ${kind} review status`} placeholder="All review states" value={query.filters.review_status} className="status-filter"
+-      options={['draft', 'confirmed', 'reversed'].map(value => ({ value, label: label(value) }))} onChange={value => { const filters = { ...query.filters }; if (value) filters.review_status = value; else delete filters.review_status; setQuery({ ...query, page: 1, filters }); }} />} />
+-    {receipt && <ReceiptViewer key={receipt} driverId={driverId} receiptId={receipt} close={() => setReceipt(null)} next={nextIndex >= 0 && nextIndex < receiptIds.length ? () => setReceipt(receiptIds[nextIndex]) : undefined} />}
+-    <Modal title="Recategorise expense" open={Boolean(editing)} onCancel={() => setEditing(null)} onOk={() => form.submit()} confirmLoading={busy}>
+-      <p className="muted">The previous and new category are recorded in the audit trail. Receipt and imported entries use their originating correction workflows.</p>
+-      <Form form={form} layout="vertical" onFinish={recategorise}><Form.Item name="category_id" label="Category" rules={[{ required: true }]}><Select options={config.categories.map(category => ({ value: category.id, label: label(category.code) }))} /></Form.Item></Form>
+-    </Modal>
+-  </>;
+-}
+-
+-function ReceiptQueue({ driverId }: { driverId: string }) {
+-  const { year } = useWorkspace();
+-  const [query, setQuery] = useState<TableQuery>({ ...initialQuery, filters: { review_status: 'pending' } });
+-  const [opened, setOpened] = useState<string | null>(null);
+-  const [rows, setRows] = useState<Receipt[]>([]);
+-  const capture = useCallback((page: Page<Receipt>) => setRows(page.items), []);
+-  const actualQuery = useMemo(() => ({ ...query, filters: { ...query.filters, tax_year: year } }), [query, year]);
+-  const columns = useMemo<ColumnDef<Receipt>[]>(() => [
+-    { accessorKey: 'created_at', header: 'Uploaded', cell: ({ row }) => datetime(row.original.created_at) },
+-    { accessorKey: 'merchant', header: 'Merchant', enableSorting: false, cell: ({ row }) => row.original.merchant || 'Needs manual review' },
+-    { accessorKey: 'amount_pence', header: 'Full bill', enableSorting: false, cell: ({ row }) => <span className="money-cell" data-negative={(row.original.amount_pence || 0) < 0}>{money(row.original.amount_pence)}</span> },
+-    { accessorKey: 'review_status', header: 'Review', cell: ({ row }) => <StatusBadge status={row.original.review_status} /> },
+-    { id: 'open', header: '', enableSorting: false, cell: ({ row }) => <Button size="small" onClick={() => setOpened(row.original.id)}>Review receipt</Button> },
+-  ], []);
+-  const nextIndex = rows.findIndex(row => row.id === opened) + 1;
+-  return <><Alert type="info" title="Evidence awaiting a decision" description="Undated receipts stay visible until their date and amount have been reviewed. Confirmed receipts create canonical ledger postings." className="section-gap" />
+-    <DataTable title="Receipts" resource={`drivers/${driverId}/receipts`} query={actualQuery} onQuery={setQuery} columns={columns} onData={capture} toolbar={<Select aria-label="Filter receipt status" className="status-filter" value={query.filters.review_status || ''}
+-      options={[{ value: '', label: 'All receipt states' }, ...['pending', 'confirmed', 'reversed'].map(value => ({ value, label: label(value) }))]}
+-      onChange={value => setQuery({ ...query, page: 1, filters: value ? { review_status: value } : {} })} />} />
+-    {opened && <ReceiptViewer key={opened} driverId={driverId} receiptId={opened} close={() => setOpened(null)} next={nextIndex > 0 && nextIndex < rows.length ? () => setOpened(rows[nextIndex].id) : undefined} />}
+-  </>;
+-}
+-
+-function ExpenseTabs({ driverId }: { driverId: string }) {
+-  return <Tabs destroyOnHidden items={[{ key: 'ledger', label: 'Expense ledger', children: <LedgerTab driverId={driverId} kind="expenses" /> },
+-    { key: 'receipts', label: 'Receipt review queue', children: <ReceiptQueue driverId={driverId} /> }]} />;
+-}
+-
+-function TaxTab({ driverId, mileageOnly = false }: { driverId: string; mileageOnly?: boolean }) {
+-  const { year } = useWorkspace();
+-  const result = useQuery({ queryKey: ['tax', driverId, year], queryFn: ({ signal }) => api.tax(driverId, year, signal) });
+-  return <QueryState pending={result.isPending} error={result.error} retry={result.refetch}>{result.data && <>
+-    {mileageOnly ? <section className="surface profile-card section-gap"><h2>Verified mileage rules · {year}</h2>{result.data.rules.rules.filter(rule => rule.code === 'mileage').map(rule => <div key={rule.code}>
+-      <Descriptions column={{ xs: 1, md: 3 }} items={Object.entries(rule.value).map(([key, value]) => ({ key, label: label(key), children: String(value) }))} />
+-      <a href={rule.official_url} target="_blank" rel="noreferrer">HMRC source ↗</a><small className="muted"> · Verified {date(rule.verified_at)} · Per-vehicle eligibility is enforced by the backend.</small></div>)}</section> : <>
+-      <Alert type="info" showIcon title="Estimate for review — not an assessed bill or completed tax return" description="Figures follow the selected tax-year rules. Review missing inputs and unsupported tax circumstances before relying on this estimate." className="section-gap" />
+-      {result.data.estimate.available === false ? <Alert type="warning" title="Tax estimate unavailable" description={result.data.estimate.reason} className="section-gap" /> :
+-        <div className="stat-grid section-gap">{[['Estimated liability', result.data.estimate.total_pence], ['Income tax', result.data.estimate.income_tax_pence], ['Class 4 NI', result.data.estimate.class4_pence], ['Personal allowance', result.data.estimate.personal_allowance_pence]].map(([name, value]) => <div className="surface stat-card" key={String(name)}><span>{name}</span><strong>{money(value as number | undefined)}</strong></div>)}</div>}
+-      <div className="profile-overview-grid"><section className="surface profile-card"><h2>Payment timeline</h2>{result.data.payments.items.length ? result.data.payments.items.map(item => <div className="payment-row" key={item.id}><span>{date(item.due_on)}<small>{label(item.label_key.replace(/^deadline\./, ''))}</small></span><strong>{item.amount_pence == null ? 'Amount not assessed' : money(item.amount_pence)}</strong></div>) : <Empty description="No payment dates supplied" />}
+-        {(result.data.payments.warnings || []).map(warning => <Alert key={warning} type="warning" title={warning} className="form-alert" />)}</section>
+-        <section className="surface profile-card"><h2>Assumptions & limitations</h2><ul className="assumption-list">{[...(result.data.estimate.warnings || []), ...(result.data.estimate.assumptions || [])].map((text, index) => <li key={index}>{text}</li>)}</ul><p className="muted">Rule set {result.data.rules.version}</p>
+-          <Space wrap>{result.data.rules.rules.map(rule => <a key={rule.code} href={rule.official_url} target="_blank" rel="noreferrer">{label(rule.code)} ↗</a>)}</Space></section></div>
+-    </>}
+-  </>}</QueryState>;
+-}
+-
+-function MileageTab({ driverId }: { driverId: string }) {
+-  const { year } = useWorkspace();
+-  const [query, setQuery] = useState<TableQuery>({ ...initialQuery, sort: 'occurred_on' });
+-  const [summary, setSummary] = useState<{ business_miles: string; deduction_pence: number } | null>(null);
+-  const actualQuery = useMemo(() => ({ ...query, filters: { tax_year: year } }), [query, year]);
+-  const capture = useCallback((data: Page<Mileage> & Record<string, unknown>) => setSummary(data.summary as { business_miles: string; deduction_pence: number }), []);
+-  const columns = useMemo<ColumnDef<Mileage>[]>(() => [
+-    { accessorKey: 'occurred_on', header: 'Date', cell: ({ row }) => date(row.original.occurred_on) },
+-    { accessorKey: 'purpose', header: 'Journey purpose', enableSorting: false },
+-    { accessorKey: 'business_miles', header: 'Business miles' },
+-    { accessorKey: 'private_miles', header: 'Private miles', enableSorting: false },
+-    { id: 'odometer', header: 'Odometer evidence', enableSorting: false, cell: ({ row }) => row.original.start_odometer && row.original.end_odometer ? `${row.original.start_odometer} → ${row.original.end_odometer}` : 'Not supplied' },
+-  ], []);
+-  return <>{summary && <div className="inline-stats section-gap"><span><strong>{summary.business_miles}</strong> recorded business miles</span><span><strong>{money(summary.deduction_pence)}</strong> eligible mileage deduction</span></div>}
+-    <TaxTab driverId={driverId} mileageOnly /><DataTable title="Mileage logs" resource={`drivers/${driverId}/mileage`} query={actualQuery} onQuery={setQuery} columns={columns} onData={capture} />
+-  </>;
+-}
+-
+-function DocumentsTab({ driverId }: { driverId: string }) {
+-  const { config } = useWorkspace();
+-  const [query, setQuery] = useState(initialQuery);
+-  const [busy, setBusy] = useState(false);
+-  const { message } = App.useApp();
+-  const cache = useQueryClient();
+-  const openDocument = async (document: Document) => {
+-    try { download(await api.blob(`/drivers/${driverId}/documents/${document.id}/content`), `evidence.${document.mime_type === 'application/pdf' ? 'pdf' : document.mime_type === 'image/png' ? 'png' : 'jpg'}`); }
+-    catch (error) { void message.error((error as Error).message); }
+-  };
+-  const columns = useMemo<ColumnDef<Document>[]>(() => [
+-    { accessorKey: 'created_at', header: 'Uploaded', cell: ({ row }) => datetime(row.original.created_at) },
+-    { accessorKey: 'mime_type', header: 'Type', enableSorting: false },
+-    { accessorKey: 'size_bytes', header: 'Size', cell: ({ row }) => `${(row.original.size_bytes / 1024).toFixed(1)} KB` },
+-    { accessorKey: 'scan_status', header: 'Safety check', enableSorting: false, cell: ({ row }) => <StatusBadge status={row.original.scan_status} /> },
+-    { id: 'download', header: '', enableSorting: false, cell: ({ row }) => <Button size="small" icon={<Download />} disabled={!['clean', 'generated'].includes(row.original.scan_status)} onClick={() => void openDocument(row.original)}>Download</Button> },
+-  ], [driverId]);
+-  return <><Alert type="info" title="Private evidence store" description="Uploads are quarantined until the configured scanner approves them. Documents are never publicly accessible." className="section-gap" />
+-    <DataTable title="Documents" resource={`drivers/${driverId}/documents`} query={query} onQuery={setQuery} columns={columns} toolbar={<RoleGuard action="edit"><Upload accept="image/png,image/jpeg,application/pdf" showUploadList={false} disabled={busy}
+-      beforeUpload={async file => {
+-        if (file.size > config.upload_max_bytes) { void message.error('File exceeds the server upload limit.'); return false; }
+-        const body = new FormData(); body.append('file', file);
+-        setBusy(true);
+-        try { await api.mutate(`/drivers/${driverId}/documents`, body); await cache.invalidateQueries({ queryKey: ['table'] }); void message.success('Evidence uploaded for private scanning.'); }
+-        catch (error) { void message.error((error as Error).message); }
+-        finally { setBusy(false); }
+-        return false;
+-      }}><Button loading={busy} icon={<UploadIcon />}>Upload document</Button></Upload></RoleGuard>} />
+-  </>;
+-}
+-
+-function CommunicationTab({ driverId, kind }: { driverId: string; kind: 'messages' | 'notes' }) {
+-  const [query, setQuery] = useState<TableQuery>(initialQuery);
+-  const [busy, setBusy] = useState(false);
+-  const [form] = Form.useForm();
+-  const { message } = App.useApp();
+-  const cache = useQueryClient();
+-  const columns = useMemo<ColumnDef<Entry>[]>(() => [
+-    { accessorKey: 'created_at', header: 'Time (UK)', cell: ({ row }) => datetime(row.original.created_at) },
+-    { accessorKey: 'author', header: 'From', enableSorting: false },
+-    { accessorKey: 'body', header: kind === 'messages' ? 'Message' : 'Internal note / ticket', enableSorting: false, cell: ({ row }) => <div className="message-body">{row.original.kind === 'ticket' && <Tag>Ticket</Tag>}{row.original.body}</div> },
+-  ], [kind]);
+-  const submit = async (values: { body: string; kind?: string }) => {
+-    if (!values.body.trim()) return;
+-    setBusy(true);
+-    try { await api.mutate(`/drivers/${driverId}/${kind}`, { body: values.body.trim(), kind: values.kind || 'note' }); form.resetFields(); await cache.invalidateQueries({ queryKey: ['table'] }); void message.success(kind === 'messages' ? 'Message saved to the driver’s human accountant thread.' : 'Internal note saved.'); }
+-    catch (error) { void message.error((error as Error).message); }
+-    finally { setBusy(false); }
+-  };
+-  return <><Alert type="info" title={kind === 'messages' ? 'Human accountant conversation' : 'Internal notes & support tickets'}
+-    description={kind === 'messages' ? 'Messages are stored in the human thread. Push/email delivery and a Flutter chat screen are separate integrations.' : 'These entries stay inside the staff panel and are not shown to the driver.'} className="section-gap" />
+-    <DataTable title={kind === 'messages' ? 'Messages' : 'Notes'} resource={`drivers/${driverId}/${kind}`} query={query} onQuery={setQuery} columns={columns} />
+-    <RoleGuard action={kind === 'messages' ? 'message' : 'note'}><section className="surface profile-card composer"><h2>{kind === 'messages' ? 'Message the driver' : 'Add an internal entry'}</h2>
+-      <Form layout="vertical" form={form} onFinish={submit} initialValues={{ kind: 'note' }}><Form.Item name="body" label={kind === 'messages' ? 'Your message' : 'Note or ticket'} rules={[{ required: true, whitespace: true, max: 8000 }]}><Input.TextArea rows={3} maxLength={8000} /></Form.Item>
+-        <Space>{kind === 'notes' && <Form.Item name="kind" noStyle><Select aria-label="Entry type" options={[{ value: 'note', label: 'Internal note' }, { value: 'ticket', label: 'Support ticket' }]} /></Form.Item>}<Button type="primary" htmlType="submit" loading={busy} icon={<Send />}>{kind === 'messages' ? 'Send message' : 'Save entry'}</Button></Space>
+-      </Form></section></RoleGuard>
+-  </>;
+-}
+-
+-function DriverProfileContent({ driverId }: { driverId: string }) {
+-  const { year } = useWorkspace();
+-  const [tab, setTab] = useState('overview');
+-  const [auditQuery, setAuditQuery] = useState(initialQuery);
+-  const result = useQuery({ queryKey: ['overview', driverId, year], queryFn: ({ signal }) => api.overview(driverId, year, signal) });
+-  const data = result.data;
+-  return <><Link to="/drivers" className="back-link"><ArrowLeft /> Driver directory</Link>
+-    <QueryState pending={result.isPending} error={result.error} retry={result.refetch}>{data && <>
+-      <div className="page-heading profile-heading"><div className="driver-cell"><Avatar size={56} className="driver-avatar">{initials(data.name)}</Avatar><div><span className="eyebrow">DRIVER 360</span><h1>{data.name}</h1><p>{data.email || 'Email not supplied'} <span className="text-divider">·</span> {data.accountant_name ? `Assigned to ${data.accountant_name}` : 'Awaiting assignment'}</p><div className="profile-plan"><StatusBadge status={data.subscription.status} />{data.subscription.plan_id && <span className="muted">{data.subscription.plan_id}</span>}<span className="muted">Tax year {year}</span></div></div></div></div>
+-      <div className="stat-grid profile-stats">{[['Income', data.totals.income_pence], ['Deductible expenses', data.totals.deductible_expenses_pence], ['Profit', data.totals.profit_pence], ['Estimated tax', data.totals.estimated_tax_pence]].map(([title, value]) => <div className="surface stat-card" key={String(title)}><span>{title}</span><strong>{money(value as number | null)}</strong></div>)}</div>
+-      <Tabs activeKey={tab} onChange={setTab} destroyOnHidden className="profile-tabs" items={[
+-        { key: 'overview', label: 'Overview', children: <OverviewTab data={data} /> },
+-        ...(['income', 'expenses', 'mileage', 'tax', 'documents', 'messages', 'notes', 'activity'] as const).map(key => ({ key,
+-          label: key === 'activity' ? 'Activity log' : key === 'notes' ? 'Internal notes' : label(key),
+-          children: key === 'income' ? <LedgerTab key={`${key}-${year}`} driverId={driverId} kind={key} /> : key === 'expenses' ? <ExpenseTabs key={year} driverId={driverId} /> :
+-            key === 'mileage' ? <MileageTab key={year} driverId={driverId} /> : key === 'tax' ? <TaxTab driverId={driverId} /> :
+-              key === 'documents' ? <DocumentsTab driverId={driverId} /> : key === 'messages' || key === 'notes' ? <CommunicationTab driverId={driverId} kind={key} /> :
+-                <AuditTimeline resource={`drivers/${driverId}/activity`} query={auditQuery} onQuery={setAuditQuery} />,
+-        })),
+-      ]} />
+-    </>}</QueryState>
+-  </>;
+-}
+-
+-export function DriverProfilePage() {
+-  const { id } = useParams();
+-  const active = useSession();
+-  if (!id || !/^[a-f0-9-]{36}$/i.test(id) || !can(active?.staff.role, 'read')) return <Empty description="Driver unavailable" />;
+-  return <DriverProfileContent key={id} driverId={id} />;
+-}
++import { useCallback, useEffect, useMemo, useState } from 'react';
++import { useQuery, useQueryClient } from '@tanstack/react-query';
++import { Alert, App, Avatar, Button, Descriptions, Empty, Form, Input, Modal, Select, Space, Tabs, Tag, Tooltip, Upload } from 'antd';
++import { ArrowLeft, Download, EyeOff, Eye, FileImage, Send, Upload as UploadIcon } from 'lucide-react';
++import { Link, useParams, useLocation } from 'react-router-dom';
++import type { ColumnDef } from '@tanstack/react-table';
++import { api, download } from '../api/client';
++import { useSession, useWorkspace } from '../auth/context';
++import { can } from '../auth/permissions';
++import { initialQuery, type Document, type Entry, type Mileage, type Overview, type Page, type Receipt, type TableQuery, type Transaction } from '../api/types';
++import { AuditTimeline } from '../components/AuditTimeline';
++import { DataTable } from '../components/DataTable';
++import { ReceiptViewer } from '../components/ReceiptViewer';
++import { RoleGuard } from '../components/RoleGuard';
++import { QueryState, PanelBoundary } from '../components/States';
++import { ExplainNumber } from '../components/ExplainNumber';
++import { TaxExplanation } from '../components/TaxExplanation';
++import { WorkflowPanel } from '../components/Workflow';
++import { RecordAudit } from '../components/RecordAudit';
++import { StatusBadge } from '../components/StatusBadge';
++import { date, datetime, initials, label, money } from '../lib/format';
++import { AiIndicator, ConfidenceBar } from '../components/AiIndicator';
++
++function RevealField({ driverId, field, masked }: { driverId: string; field: 'utr' | 'ni_number'; masked: string | null }) {
++  const { year } = useWorkspace();
++  const [revealed, setRevealed] = useState<string | null>(null);
++  const [open, setOpen] = useState(false);
++  const [reason, setReason] = useState('');
++  const [busy, setBusy] = useState(false);
++  const { message } = App.useApp();
++  useEffect(() => { setRevealed(null); }, [year, driverId]);
++  useEffect(() => {
++    if (!revealed) return;
++    const timer = setTimeout(() => setRevealed(null), 30000);
++    const hide = () => { if (document.hidden) setRevealed(null); };
++    const blur = () => setRevealed(null);
++    document.addEventListener('visibilitychange', hide);
++    window.addEventListener('blur', blur);
++    return () => { clearTimeout(timer); document.removeEventListener('visibilitychange', hide); window.removeEventListener('blur', blur); };
++  }, [revealed]);
++  const reveal = async () => {
++    setBusy(true);
++    try { const result = await api.reveal(driverId, { field, tax_year: year, reason: reason.trim() }); setRevealed(result.value); setOpen(false); setReason(''); }
++    catch (error) { void message.error((error as Error).message); }
++    finally { setBusy(false); }
++  };
++  return <><Space><span className="identifier">{revealed || masked || 'Not supplied'}</span>{masked && <RoleGuard action="reveal"><Button size="small" type="text" icon={revealed ? <EyeOff /> : <Eye />} aria-label={`${revealed ? 'Hide' : 'Reveal'} ${field === 'utr' ? 'UTR' : 'NI number'}`} onClick={() => revealed ? setRevealed(null) : setOpen(true)} /></RoleGuard>}</Space>
++    <Modal title={`Reveal ${field === 'utr' ? 'UTR' : 'NI number'}`} open={open} onCancel={() => { setOpen(false); setReason(''); }} onOk={() => void reveal()} okText="Reveal & audit" confirmLoading={busy} okButtonProps={{ disabled: reason.trim().length < 5 }}>
++      <Alert type="warning" title="This access will be audited" description="The value automatically hides after 30 seconds or when you leave this window." className="form-alert" />
++      <label htmlFor={`reason-${field}`}>Reason for access</label><Input.TextArea id={`reason-${field}`} value={reason} maxLength={500} onChange={event => setReason(event.target.value)} rows={3} />
++    </Modal></>;
++}
++
++function OverviewTab({ data }: { data: Overview }) {
++  return <div className="profile-overview-grid"><section className="surface profile-card"><h2>Personal & tax details</h2><Descriptions column={1} items={[
++    { key: 'name', label: 'Driver', children: data.name }, { key: 'email', label: 'Email', children: data.email || 'Not supplied' },
++    { key: 'utr', label: 'UTR', children: <RevealField driverId={data.id} field="utr" masked={data.utr_masked} /> },
++    { key: 'ni', label: 'NI number', children: <RevealField driverId={data.id} field="ni_number" masked={data.ni_masked} /> },
++    { key: 'accountant', label: 'Accountant', children: data.accountant_name || 'Unassigned' },
++    { key: 'joined', label: 'Joined', children: date(data.created_at) },
++  ]} /></section><section className="surface profile-card"><h2>Driving & subscription</h2><Descriptions column={1} items={[
++    { key: 'licence', label: 'Licence', children: data.driver_profile.licence_type ? label(data.driver_profile.licence_type) : 'Not supplied' },
++    { key: 'council', label: 'Council code', children: data.driver_profile.council_code || 'Not supplied' },
++    { key: 'work', label: 'Work pattern', children: data.driver_profile.work_pattern ? label(data.driver_profile.work_pattern) : 'Not supplied' },
++    { key: 'subscription', label: 'Billing status', children: <StatusBadge status={data.subscription.status} /> },
++    { key: 'plan', label: 'Plan reference', children: data.subscription.plan_id || 'No approved plan assigned' },
++  ]} /><Alert type="info" title="Bank details are not collected by this backend" description="No bank details are inferred from uploaded evidence." /></section></div>;
++}
++
++function LedgerTab({ driverId, kind }: { driverId: string; kind: 'income' | 'expenses' }) {
++  const { year, config } = useWorkspace();
++  const [query, setQuery] = useState<TableQuery>({ ...initialQuery, sort: 'occurred_on' });
++  const [receipt, setReceipt] = useState<string | null>(null);
++  const [rows, setRows] = useState<Transaction[]>([]);
++  const [editing, setEditing] = useState<Transaction | null>(null);
++  const [busy, setBusy] = useState(false);
++  const [form] = Form.useForm();
++  const cache = useQueryClient();
++  const { message } = App.useApp();
++  const capture = useCallback((data: Page<Transaction>) => setRows(data.items), []);
++  const actualQuery = useMemo(() => ({ ...query, filters: { ...query.filters, tax_year: year } }), [query, year]);
++  const columns = useMemo<ColumnDef<Transaction>[]>(() => [
++    { accessorKey: 'occurred_on', header: 'Date', cell: ({ row }) => date(row.original.occurred_on) },
++    { accessorKey: 'description', header: kind === 'income' ? 'Earnings' : 'Expense', enableSorting: false, cell: ({ row }) => <div className="record-description"><strong>{row.original.description || 'Description not supplied'}</strong><small>{kind === 'income' ? row.original.source_name || 'Source not supplied' : row.original.category_name}</small></div> },
++    { accessorKey: 'amount_pence', header: 'Amount', cell: ({ row }) => <span className="money-cell" data-negative={row.original.amount_pence < 0}>{money(row.original.amount_pence)}</span> },
++    ...(kind === 'expenses' ? [{ id: 'deductible', header: 'Deductible', enableSorting: false, cell: ({ row }: { row: { original: Transaction } }) => <span className="money-cell">{money(row.original.deductible_pence)}<ExplainNumber name="Deductible expenses" year={year}><p>Full amount {money(row.original.amount_pence)}; reviewed business share {row.original.business_use_percent}%; server deduction {money(row.original.deductible_pence)}.</p><p>Eligibility reasons: {row.original.eligibility_reason_codes.join('; ') || 'None supplied'}. Source: ledger API; includes no separate mileage claim in this row.</p></ExplainNumber><small className="cell-small">{row.original.business_use_percent}% business</small></span> } as ColumnDef<Transaction>] : []),
++    { accessorKey: 'review_status', header: 'Review', cell: ({ row }) => <StatusBadge status={row.original.review_status} /> },
++    ...(kind === 'expenses' ? [{ id: 'ai', header: 'AI suggestion', enableSorting: false, cell: ({ row }: { row: { original: Transaction } }) => row.original.review_status === 'confirmed' ? <AiIndicator reviewed reviewerName={row.original.reviewerName} /> : row.original.ai_category ? <Tooltip title={row.original.ai_reason?.join('; ') || 'No explanation supplied by OCR'}><div><AiIndicator /><small className="cell-small">{label(config.categories.find(c => c.id === row.original.ai_category)?.code || 'Category supplied')}</small><ConfidenceBar confidence={row.original.ai_confidence} /></div></Tooltip> : <span className="muted">No suggestion</span> } as ColumnDef<Transaction>] : []),
++    { id: 'evidence', header: 'Evidence / review', enableSorting: false, cell: ({ row }) => <Space>{row.original.receipt_id ? <Button size="small" icon={<FileImage />} onClick={() => setReceipt(row.original.receipt_id)}>Receipt</Button> : <span className="muted">No receipt</span>}
++      <RecordAudit driverId={driverId} recordId={row.original.receipt_id || row.original.id} />{kind === 'expenses' && !row.original.receipt_id && !row.original.import_origin_key && row.original.review_status !== 'reversed' && <RoleGuard action="edit"><Button size="small" onClick={() => { setEditing(row.original); form.setFieldsValue({ category_id: row.original.category_id }); }}>Recategorise</Button></RoleGuard>}</Space> },
++  ], [kind, config.categories, form, driverId, year]);
++  const recategorise = async (values: { category_id: string }) => {
++    if (!editing) return;
++    setBusy(true);
++    try {
++      await api.mutate(`/drivers/${driverId}/expenses/${editing.id}`, { expected_version: editing.version, category_id: values.category_id }, 'PATCH');
++      setEditing(null); await cache.invalidateQueries({ queryKey: ['table'] }); await cache.invalidateQueries({ queryKey: ['overview', driverId] }); await cache.invalidateQueries({ queryKey: ['tax', driverId] });
++      void message.success('Category corrected. Eligibility was recalculated by the backend.');
++    } catch (error) { void message.error((error as Error).message); }
++    finally { setBusy(false); }
++  };
++  const receiptIds = [...new Set(rows.map(row => row.receipt_id).filter((id): id is string => Boolean(id)))];
++  const nextIndex = receipt ? receiptIds.indexOf(receipt) + 1 : -1;
++  return <><DataTable title={kind === 'income' ? 'Income' : 'Expenses'} resource={`drivers/${driverId}/${kind}`} query={actualQuery} onQuery={setQuery} columns={columns} onData={capture}
++    toolbar={<Select allowClear aria-label={`Filter ${kind} review status`} placeholder="All review states" value={query.filters.review_status} className="status-filter"
++      options={['draft', 'confirmed', 'reversed'].map(value => ({ value, label: label(value) }))} onChange={value => { const filters = { ...query.filters }; if (value) filters.review_status = value; else delete filters.review_status; setQuery({ ...query, page: 1, filters }); }} />} />
++    {receipt && <ReceiptViewer key={receipt} driverId={driverId} receiptId={receipt} close={() => setReceipt(null)} next={nextIndex >= 0 && nextIndex < receiptIds.length ? () => setReceipt(receiptIds[nextIndex]) : undefined} />}
++    <Modal title="Recategorise expense" open={Boolean(editing)} onCancel={() => setEditing(null)} onOk={() => form.submit()} confirmLoading={busy}>
++      <p className="muted">The previous and new category are recorded in the audit trail. Receipt and imported entries use their originating correction workflows.</p>
++      <Form form={form} layout="vertical" onFinish={recategorise}><Form.Item name="category_id" label="Category" rules={[{ required: true }]}><Select options={config.categories.map(category => ({ value: category.id, label: label(category.code) }))} /></Form.Item></Form>
++    </Modal>
++  </>;
++}
++
++function ReceiptQueue({ driverId }: { driverId: string }) {
++  const { year } = useWorkspace();
++  const [query, setQuery] = useState<TableQuery>({ ...initialQuery, filters: { review_status: 'pending' } });
++  const [opened, setOpened] = useState<string | null>(null);
++  const [rows, setRows] = useState<Receipt[]>([]);
++  const capture = useCallback((page: Page<Receipt>) => setRows(page.items), []);
++  const actualQuery = useMemo(() => ({ ...query, filters: { ...query.filters, tax_year: year } }), [query, year]);
++  const columns = useMemo<ColumnDef<Receipt>[]>(() => [
++    { accessorKey: 'created_at', header: 'Uploaded', cell: ({ row }) => datetime(row.original.created_at) },
++    { accessorKey: 'merchant', header: 'Merchant', enableSorting: false, cell: ({ row }) => row.original.merchant || 'Needs manual review' },
++    { accessorKey: 'amount_pence', header: 'Full bill', enableSorting: false, cell: ({ row }) => <span className="money-cell" data-negative={(row.original.amount_pence || 0) < 0}>{money(row.original.amount_pence)}</span> },
++    { accessorKey: 'review_status', header: 'Review', cell: ({ row }) => <StatusBadge status={row.original.review_status} /> },
++    { id: 'open', header: '', enableSorting: false, cell: ({ row }) => <Button size="small" onClick={() => setOpened(row.original.id)}>Review receipt</Button> },
++  ], []);
++  const nextIndex = rows.findIndex(row => row.id === opened) + 1;
++  return <><Alert type="info" title="Evidence awaiting a decision" description="Undated receipts stay visible until their date and amount have been reviewed. Confirmed receipts create canonical ledger postings." className="section-gap" />
++    <DataTable title="Receipts" resource={`drivers/${driverId}/receipts`} query={actualQuery} onQuery={setQuery} columns={columns} onData={capture} toolbar={<Select aria-label="Filter receipt status" className="status-filter" value={query.filters.review_status || ''}
++      options={[{ value: '', label: 'All receipt states' }, ...['pending', 'confirmed', 'reversed'].map(value => ({ value, label: label(value) }))]}
++      onChange={value => setQuery({ ...query, page: 1, filters: value ? { review_status: value } : {} })} />} />
++    {opened && <ReceiptViewer key={opened} driverId={driverId} receiptId={opened} close={() => setOpened(null)} next={nextIndex > 0 && nextIndex < rows.length ? () => setOpened(rows[nextIndex].id) : undefined} />}
++  </>;
++}
++
++function ExpenseTabs({ driverId }: { driverId: string }) {
++  return <Tabs destroyOnHidden items={[{ key: 'ledger', label: 'Expense ledger', children: <LedgerTab driverId={driverId} kind="expenses" /> },
++    { key: 'receipts', label: 'Receipt review queue', children: <ReceiptQueue driverId={driverId} /> }]} />;
++}
++
++export function TaxTab({ driverId, mileageOnly = false }: { driverId: string; mileageOnly?: boolean }) {
++  const { year } = useWorkspace();
++  const result = useQuery({ queryKey: ['tax', driverId, year], queryFn: ({ signal }) => api.tax(driverId, year, signal) });
++  const overview = useQuery({ queryKey: ['overview', driverId, year], queryFn: ({ signal }) => api.overview(driverId, year, signal), enabled: !mileageOnly });
++  return <QueryState layout={mileageOnly ? 'panel' : 'tax'} pending={result.isPending} error={result.error} retry={result.refetch} empty={mileageOnly && result.isSuccess && !result.data.rules.rules.some(rule => rule.code === 'mileage')} emptyMessage="No mileage rates were supplied for this tax year. Refresh or ask an administrator.">{result.data && <>
++    {mileageOnly ? <section className="surface profile-card section-gap"><h2>Verified mileage rules · {year}</h2>{result.data.rules.rules.filter(rule => rule.code === 'mileage').map(rule => <div key={rule.code}>
++      <Descriptions column={{ xs: 1, md: 3 }} items={Object.entries(rule.value).map(([key, value]) => ({ key, label: label(key), children: String(value) }))} />
++      <a href={rule.official_url} target="_blank" rel="noreferrer">HMRC source ↗</a><small className="muted"> · Verified {date(rule.verified_at)} · Per-vehicle eligibility is enforced by the backend.</small></div>)}</section> : <>
++      <Alert type="info" showIcon title="Estimate for review — not an assessed bill or completed tax return" description="Figures follow the selected tax-year rules. Review missing inputs and unsupported tax circumstances before relying on this estimate." className="section-gap" />
++      {result.data.estimate.available === false ? <Alert type="warning" title="Tax estimate unavailable" description={result.data.estimate.reason} className="section-gap" /> :
++        <div className="stat-grid section-gap">{[['Estimated liability', result.data.estimate.total_pence], ['Income tax', result.data.estimate.income_tax_pence], ['Class 4 NI', result.data.estimate.class4_pence], ['Personal allowance', result.data.estimate.personal_allowance_pence]].map(([name, value]) => <div className="surface stat-card" key={String(name)}><span className="number-label">{name}<TaxExplanation name={String(name)} year={year} result={result.data!} /></span><strong>{money(value as number | undefined)}</strong></div>)}</div>}
++
++      <QueryState pending={overview.isPending} error={overview.error} retry={overview.refetch}>{overview.data && <WorkflowPanel data={overview.data} tax />}</QueryState>
++      <div className="profile-overview-grid"><section className="surface profile-card"><h2>Payment timeline</h2>{result.data.payments.items.length ? result.data.payments.items.map(item => <div className="payment-row" key={item.id}><span>{date(item.due_on)}<small>{label(item.label_key.replace(/^deadline\./, ''))}</small></span><strong>{item.amount_pence == null ? 'Amount not assessed' : money(item.amount_pence)}<ExplainNumber name="Payment amount" year={year} sources={result.data!.rules.rules.filter(rule => rule.code === 'poa').map(rule => <p key={rule.code}><a href={rule.official_url} target="_blank" rel="noreferrer">Payment rules source</a> ? {JSON.stringify(rule.value)}</p>)}><dl className="breakdown">{Object.entries(result.data!.payments).filter(([key]) => key.endsWith('_pence')).map(([key, value]) => <div key={key}><dt>{label(key.replace('_pence', ''))}</dt><dd>{money(value as number | null)}</dd></div>)}</dl><p>Source: payment timeline API, supplied prior assessment and current-pace projection; due {date(item.due_on)}.</p></ExplainNumber></strong></div>) : <Empty description="No payment dates supplied" />}
++        {(result.data.payments.warnings || []).map(warning => <Alert key={warning} type="warning" title={warning} className="form-alert" />)}</section>
++        <section className="surface profile-card"><h2>Assumptions & limitations</h2><ul className="assumption-list">{[...new Set([...(result.data.estimate.warnings || []), ...(result.data.estimate.assumptions || [])])].map(text => <li key={text}>{text.replaceAll('_', ' ')}</li>)}</ul><p className="muted">Rule set {result.data.rules.version}</p>
++          <Space wrap>{result.data.rules.rules.map(rule => <a key={rule.code} href={rule.official_url} target="_blank" rel="noreferrer">{label(rule.code)} ↗</a>)}</Space></section></div>
++    </>}
++  </>}</QueryState>;
++}
++
++function MileageTab({ driverId }: { driverId: string }) {
++  const { year } = useWorkspace();
++  const [query, setQuery] = useState<TableQuery>({ ...initialQuery, sort: 'occurred_on' });
++  const [summary, setSummary] = useState<{ business_miles: string; deduction_pence: number } | null>(null);
++  const actualQuery = useMemo(() => ({ ...query, filters: { tax_year: year } }), [query, year]);
++  const capture = useCallback((data: Page<Mileage> & Record<string, unknown>) => setSummary(data.summary as { business_miles: string; deduction_pence: number }), []);
++  const columns = useMemo<ColumnDef<Mileage>[]>(() => [
++    { accessorKey: 'occurred_on', header: 'Date', cell: ({ row }) => date(row.original.occurred_on) },
++    { accessorKey: 'purpose', header: 'Journey purpose', enableSorting: false },
++    { accessorKey: 'business_miles', header: 'Business miles' },
++    { accessorKey: 'private_miles', header: 'Private miles', enableSorting: false },
++    { id: 'audit', header: 'History', enableSorting: false, cell: ({ row }) => <RecordAudit driverId={driverId} recordId={row.original.id} /> },
++    { id: 'odometer', header: 'Odometer evidence', enableSorting: false, cell: ({ row }) => row.original.start_odometer && row.original.end_odometer ? `${row.original.start_odometer} → ${row.original.end_odometer}` : 'Not supplied' },
++  ], []);
++  return <><div className="inline-stats section-gap"><span><strong>{summary?.business_miles ?? '—'}</strong> recorded business miles<ExplainNumber name="Business miles" year={year} /></span><span><strong>{money(summary?.deduction_pence)}</strong> eligible mileage deduction<ExplainNumber name="Mileage deduction" year={year}><p>{summary?.business_miles ?? '—'} recorded miles; deduction {money(summary?.deduction_pence)}. Source: mileage summary API. Per-vehicle logs and effective elections determine eligibility; the summary is not filtered by table search.</p><p>Rates and official references for this year are displayed in Verified mileage rules below.</p></ExplainNumber></span></div>
++    <TaxTab driverId={driverId} mileageOnly /><DataTable title="Mileage logs" resource={`drivers/${driverId}/mileage`} query={actualQuery} onQuery={setQuery} columns={columns} onData={capture} />
++  </>;
++}
++
++function DocumentsTab({ driverId }: { driverId: string }) {
++  const { config } = useWorkspace();
++  const [query, setQuery] = useState(initialQuery);
++  const [busy, setBusy] = useState(false);
++  const { message } = App.useApp();
++  const cache = useQueryClient();
++  const openDocument = async (document: Document) => {
++    try { download(await api.blob(`/drivers/${driverId}/documents/${document.id}/content`), `evidence.${document.mime_type === 'application/pdf' ? 'pdf' : document.mime_type === 'image/png' ? 'png' : 'jpg'}`); }
++    catch (error) { void message.error((error as Error).message); }
++  };
++  const columns = useMemo<ColumnDef<Document>[]>(() => [
++    { accessorKey: 'created_at', header: 'Uploaded', cell: ({ row }) => datetime(row.original.created_at) },
++    { accessorKey: 'mime_type', header: 'Type', enableSorting: false },
++    { accessorKey: 'size_bytes', header: 'Size', cell: ({ row }) => `${(row.original.size_bytes / 1024).toFixed(1)} KB` },
++    { accessorKey: 'scan_status', header: 'Safety check', enableSorting: false, cell: ({ row }) => <StatusBadge status={row.original.scan_status} /> },
++    { id: 'download', header: '', enableSorting: false, cell: ({ row }) => <Space><Tooltip title={['clean', 'generated'].includes(row.original.scan_status) ? 'Download private evidence' : 'Download unavailable until scanning succeeds. Ask the driver for replacement evidence if scanning fails.'}><span><Button size="small" icon={<Download />} disabled={!['clean', 'generated'].includes(row.original.scan_status)} onClick={() => void openDocument(row.original)}>Download</Button></span></Tooltip><RecordAudit driverId={driverId} recordId={row.original.id} /></Space> },
++  ], [driverId]);
++  return <><Alert type="info" title="Private evidence store" description="Uploads are quarantined until the configured scanner approves them. Documents are never publicly accessible." className="section-gap" />
++    <DataTable title="Documents" resource={`drivers/${driverId}/documents`} query={query} onQuery={setQuery} columns={columns} toolbar={<RoleGuard action="edit"><Upload accept="image/png,image/jpeg,application/pdf" showUploadList={false} disabled={busy}
++      beforeUpload={async file => {
++        if (file.size > config.upload_max_bytes) { void message.error('File exceeds the server upload limit.'); return false; }
++        const body = new FormData(); body.append('file', file);
++        setBusy(true);
++        try { await api.mutate(`/drivers/${driverId}/documents`, body); await cache.invalidateQueries({ queryKey: ['table'] }); void message.success('Evidence uploaded for private scanning.'); }
++        catch (error) { void message.error((error as Error).message); }
++        finally { setBusy(false); }
++        return false;
++      }}><Button loading={busy} icon={<UploadIcon />}>Upload document</Button></Upload></RoleGuard>} />
++  </>;
++}
++
++function CommunicationTab({ driverId, kind }: { driverId: string; kind: 'messages' | 'notes' }) {
++  const [query, setQuery] = useState<TableQuery>(initialQuery);
++  const [busy, setBusy] = useState(false);
++  const [form] = Form.useForm();
++  const { message } = App.useApp();
++  const cache = useQueryClient();
++  const columns = useMemo<ColumnDef<Entry>[]>(() => [
++    { accessorKey: 'created_at', header: 'Time (UK)', cell: ({ row }) => datetime(row.original.created_at) },
++    { accessorKey: 'author', header: 'From', enableSorting: false },
++    { id: 'audit', header: 'History', enableSorting: false, cell: ({ row }) => <RecordAudit driverId={driverId} recordId={row.original.id} /> },
++    { accessorKey: 'body', header: kind === 'messages' ? 'Message' : 'Internal note / ticket', enableSorting: false, cell: ({ row }) => <div className="message-body">{row.original.kind === 'ticket' && <Tag>Ticket</Tag>}{row.original.body}</div> },
++  ], [kind]);
++  const submit = async (values: { body: string; kind?: string }) => {
++    if (!values.body.trim()) return;
++    setBusy(true);
++    try { await api.mutate(`/drivers/${driverId}/${kind}`, { body: values.body.trim(), kind: values.kind || 'note' }); form.resetFields(); await cache.invalidateQueries({ queryKey: ['table'] }); void message.success(kind === 'messages' ? 'Message saved to the driver’s human accountant thread.' : 'Internal note saved.'); }
++    catch (error) { void message.error((error as Error).message); }
++    finally { setBusy(false); }
++  };
++  return <><Alert type="info" title={kind === 'messages' ? 'Human accountant conversation' : 'Internal notes & support tickets'}
++    description={kind === 'messages' ? 'Messages are stored in the human thread. Push/email delivery and a Flutter chat screen are separate integrations.' : 'These entries stay inside the staff panel and are not shown to the driver.'} className="section-gap" />
++    <DataTable title={kind === 'messages' ? 'Messages' : 'Notes'} resource={`drivers/${driverId}/${kind}`} query={query} onQuery={setQuery} columns={columns} />
++    <RoleGuard action={kind === 'messages' ? 'message' : 'note'}><section className="surface profile-card composer"><h2>{kind === 'messages' ? 'Message the driver' : 'Add an internal entry'}</h2>
++      <Form layout="vertical" form={form} onFinish={submit} initialValues={{ kind: 'note' }}><Form.Item name="body" label={kind === 'messages' ? 'Your message' : 'Note or ticket'} rules={[{ required: true, whitespace: true, max: 8000 }]}><Input.TextArea rows={3} maxLength={8000} /></Form.Item>
++        <Space>{kind === 'notes' && <Form.Item name="kind" noStyle><Select aria-label="Entry type" options={[{ value: 'note', label: 'Internal note' }, { value: 'ticket', label: 'Support ticket' }]} /></Form.Item>}<Button type="primary" htmlType="submit" loading={busy} icon={<Send />}>{kind === 'messages' ? 'Send message' : 'Save entry'}</Button></Space>
++      </Form></section></RoleGuard>
++  </>;
++}
++
++function DriverProfileContent({ driverId }: { driverId: string }) {
++  const { year } = useWorkspace();
++  const location = useLocation();
++  const [tab, setTab] = useState(location.state?.tab || 'overview');
++  useEffect(() => { if (location.state?.tab) setTab(location.state.tab); }, [location.key, location.state]);
++  const [auditQuery, setAuditQuery] = useState(initialQuery);
++  const result = useQuery({ queryKey: ['overview', driverId, year], queryFn: ({ signal }) => api.overview(driverId, year, signal) });
++  const data = result.data;
++  return <><Link to="/drivers" className="back-link"><ArrowLeft /> Driver directory</Link>
++    <QueryState layout="profile" pending={result.isPending} error={result.error} retry={result.refetch}>{data && <>
++      <div className="page-heading profile-heading"><div className="driver-cell"><Avatar size={56} className="driver-avatar">{initials(data.name)}</Avatar><div><span className="eyebrow">DRIVER 360</span><h1>{data.name}</h1><p>{data.email || 'Email not supplied'} <span className="text-divider">·</span> {data.accountant_name ? `Assigned to ${data.accountant_name}` : 'Awaiting assignment'}</p><div className="profile-plan"><StatusBadge status={data.subscription.status} />{data.subscription.plan_id && <span className="muted">{data.subscription.plan_id}</span>}<span className="muted">Tax year {year}</span></div></div></div></div>
++      <div className="stat-grid profile-stats">{[['Income', data.totals.income_pence], ['Deductible expenses', data.totals.deductible_expenses_pence], ['Profit', data.totals.profit_pence], ['Estimated tax', data.totals.estimated_tax_pence]].map(([title, value]) => <div className="surface stat-card" key={String(title)}><span className="number-label">{title}<ExplainNumber name={String(title)} year={year}><p>Income {money(data.totals.income_pence)}; deductible expenses {money(data.totals.deductible_expenses_pence)}; included mileage deduction {money(data.totals.mileage_deduction_pence)}; profit {money(data.totals.profit_pence)}.</p><p>Source: overview API, confirmed ledger through {data.totals.as_of ? datetime(data.totals.as_of) : 'server as-of date'}. Tax rates, bands and PAYE/loan adjustments are available in the Tax tab.</p><Button onClick={() => setTab('tax')}>Open tax breakdown and rates</Button></ExplainNumber></span><strong>{money(value as number | null)}</strong></div>)}</div>
++      <Tabs activeKey={tab} onChange={setTab} destroyOnHidden className="profile-tabs" items={[
++        { key: 'overview', label: 'Overview', children: <PanelBoundary resetKey={`${driverId}-${year}`}><WorkflowPanel data={data} onTab={setTab} /><OverviewTab data={data} /></PanelBoundary> },
++        ...(['income', 'expenses', 'mileage', 'tax', 'documents', 'messages', 'notes', 'activity'] as const).map(key => ({ key,
++          label: key === 'activity' ? 'Activity log' : key === 'notes' ? 'Internal notes' : label(key),
++          children: <PanelBoundary resetKey={`${key}-${year}`}>{key === 'income' ? <LedgerTab key={`${key}-${year}`} driverId={driverId} kind={key} /> : key === 'expenses' ? <ExpenseTabs key={year} driverId={driverId} /> :
++            key === 'mileage' ? <MileageTab key={year} driverId={driverId} /> : key === 'tax' ? <TaxTab driverId={driverId} /> :
++              key === 'documents' ? <DocumentsTab driverId={driverId} /> : key === 'messages' || key === 'notes' ? <CommunicationTab driverId={driverId} kind={key} /> :
++                <AuditTimeline resource={`drivers/${driverId}/activity`} query={auditQuery} onQuery={setAuditQuery} />}</PanelBoundary>,
++        })),
++      ]} />
++    </>}</QueryState>
++  </>;
++}
++
++export function DriverProfilePage() {
++  const { id } = useParams();
++  const active = useSession();
++  if (!id || !/^[a-f0-9-]{36}$/i.test(id) || !can(active?.staff.role, 'read')) return <Empty description="Driver unavailable" />;
++  return <DriverProfileContent key={id} driverId={id} />;
++}
+--- a/accountant-panel/src/pages/Handoffs.tsx
++++ b/accountant-panel/src/pages/Handoffs.tsx
+@@ -1,98 +1,111 @@
+-import { useMemo, useState } from 'react';
+-import { useQuery, useQueryClient } from '@tanstack/react-query';
+-import { Alert, App, Avatar, Button, Form, Input, Modal, Select, Space } from 'antd';
+-import { UserRoundCog } from 'lucide-react';
+-import type { ColumnDef } from '@tanstack/react-table';
+-import { Link, useLocation } from 'react-router-dom';
+-import { api, request } from '../api/client';
+-import { useSession, useWorkspace } from '../auth/context';
+-import { can } from '../auth/permissions';
+-import { initialQuery, type Handoff, type HandoffStatus, type Page, type Staff, type TableQuery } from '../api/types';
+-import { DataTable } from '../components/DataTable';
+-import { StatusBadge } from '../components/StatusBadge';
+-import { RoleGuard } from '../components/RoleGuard';
+-import { date, initials, label } from '../lib/format';
+-
+-const statuses: HandoffStatus[] = ['new', 'in_review', 'waiting_on_driver', 'ready_to_file', 'filed'];
+-
+-function AssignDialog({ selected, close, done }: { selected: Handoff[]; close: () => void; done: () => void }) {
+-  const { message } = App.useApp();
+-  const [busy, setBusy] = useState(false);
+-  const [search, setSearch] = useState('');
+-  const [accountantPage, setAccountantPage] = useState(1);
+-  const [form] = Form.useForm();
+-  const result = useQuery({ queryKey: ['accountants', search, accountantPage], queryFn: ({ signal }) => request<Page<Staff>>('/staff/accountants/search',
+-    { method: 'POST', body: { ...initialQuery, sort: 'name', order: 'asc', search, page: accountantPage, page_size: 25 }, signal }) });
+-  const submit = async (values: { accountant_id: string; reason: string }) => {
+-    setBusy(true);
+-    try {
+-      await api.mutate('/handoffs/assign', { ...values, ids: selected.map(row => row.id), versions: Object.fromEntries(selected.map(row => [row.id, row.version])) });
+-      void message.success('Driver assignment updated.'); done(); close();
+-    } catch (error) { void message.error((error as Error).message); }
+-    finally { setBusy(false); }
+-  };
+-  return <Modal title={`Assign ${selected.length} handoff(s)`} open onCancel={close} onOk={() => form.submit()} confirmLoading={busy}>
+-    <Alert type="info" title="Assignment is at driver level" description="Reassigning a handoff also reassigns that driver's other handoffs and financial access." className="form-alert" />
+-    {result.isError && <Alert type="error" title={result.error.message} action={<Button onClick={() => void result.refetch()}>Retry</Button>} />}
+-    <Form form={form} layout="vertical" onFinish={submit}>
+-      <Form.Item name="accountant_id" label="Accountant" rules={[{ required: true }]}><Select showSearch={{ filterOption: false, onSearch: value => { setSearch(value); setAccountantPage(1); } }}
+-        loading={result.isPending} options={result.data?.items.map(staff => ({ value: staff.id, label: `${staff.name} · ${label(staff.role)}` }))} placeholder="Search an accountant" /></Form.Item>
+-      {(result.data?.total || 0) > 25 && <Space><Button disabled={accountantPage === 1} onClick={() => setAccountantPage(p => p - 1)}>Previous</Button><span>Page {accountantPage}</span><Button disabled={accountantPage * 25 >= (result.data?.total || 0)} onClick={() => setAccountantPage(p => p + 1)}>Next</Button></Space>}
+-      <Form.Item name="reason" label="Reason for assignment" rules={[{ required: true, min: 3, max: 500 }]}><Input.TextArea rows={3} maxLength={500} /></Form.Item>
+-    </Form>
+-  </Modal>;
+-}
+-
+-export function HandoffTable({ query, onQuery, compact = false }: { query: TableQuery; onQuery: (query: TableQuery) => void; compact?: boolean }) {
+-  const active = useSession()!;
+-  const cache = useQueryClient();
+-  const { message } = App.useApp();
+-  const [assigning, setAssigning] = useState<{ rows: Handoff[]; clear: () => void } | null>(null);
+-  const [editing, setEditing] = useState<Handoff | null>(null);
+-  const [busy, setBusy] = useState(false);
+-  const [form] = Form.useForm();
+-  const refresh = () => { void cache.invalidateQueries({ queryKey: ['table'] }); void cache.invalidateQueries({ queryKey: ['dashboard'] }); };
+-  const columns = useMemo<ColumnDef<Handoff>[]>(() => [
+-    { id: 'driver', header: 'Driver', enableSorting: false, cell: ({ row }) => <Link to={`/drivers/${row.original.driver_id}`} className="driver-cell"><Avatar size={34} className="driver-avatar">{initials(row.original.driver_name)}</Avatar><span><strong>{row.original.driver_name}</strong><small>{row.original.driver_email || 'Email not supplied'}</small></span></Link> },
+-    { accessorKey: 'tax_year', header: 'Tax year', cell: ({ row }) => row.original.tax_year || <span className="muted">Year not supplied</span> },
+-    { accessorKey: 'request_type', header: 'Request', enableSorting: false, cell: ({ row }) => label(row.original.request_type) },
+-    { accessorKey: 'status', header: 'Status', cell: ({ row }) => <StatusBadge status={row.original.status} /> },
+-    { accessorKey: 'accountant_name', header: 'Accountant', enableSorting: false, cell: ({ row }) => row.original.accountant_name || <span className="unassigned">Unassigned</span> },
+-    { accessorKey: 'created_at', header: 'Age', cell: ({ row }) => <span title={date(row.original.created_at)}>{row.original.age_days}d</span> },
+-    { id: 'actions', header: '', enableSorting: false, cell: ({ row }) => <RoleGuard action="edit"><Button className="row-action" size="small" onClick={() => { setEditing(row.original); form.setFieldsValue({ status: row.original.status, reason: '', filing_reference: row.original.filing_reference }); }}>Update</Button></RoleGuard> },
+-  ], [form]);
+-  const update = async (values: { status: HandoffStatus; reason: string; filing_reference?: string }) => {
+-    if (!editing) return;
+-    setBusy(true);
+-    try {
+-      await api.mutate(`/handoffs/${editing.id}`, { ...values, filing_reference: values.filing_reference || null, expected_version: editing.version }, 'PATCH');
+-      void message.success('Handoff updated.'); setEditing(null); refresh();
+-    } catch (error) { void message.error((error as Error).message); }
+-    finally { setBusy(false); }
+-  };
+-  return <><DataTable<Handoff> resource="handoffs" title="Handoff queue" columns={columns} query={query} onQuery={onQuery}
+-    selectable={!compact && can(active.staff.role, 'assign')}
+-    toolbar={<Select allowClear aria-label="Filter handoff status" placeholder="All statuses" value={query.filters.status} className="status-filter"
+-      options={statuses.map(status => ({ value: status, label: label(status) }))}
+-      onChange={status => { const filters = { ...query.filters }; if (status) filters.status = status; else delete filters.status; onQuery({ ...query, page: 1, filters }); }} />}
+-    selectionAction={(rows, clear) => <Button size="small" type="primary" icon={<UserRoundCog />} onClick={() => setAssigning({ rows, clear })}>Assign accountant</Button>} />
+-    {assigning && <AssignDialog selected={assigning.rows} close={() => setAssigning(null)} done={() => { assigning.clear(); refresh(); }} />}
+-    <Modal title="Update handoff" open={Boolean(editing)} onCancel={() => setEditing(null)} onOk={() => form.submit()} confirmLoading={busy} destroyOnHidden>
+-      <Form form={form} layout="vertical" onFinish={update}><Form.Item name="status" label="Status" rules={[{ required: true }]}><Select options={statuses.filter(status => status !== 'filed' || can(active.staff.role, 'approve_submission')).map(status => ({ value: status, label: label(status) }))} /></Form.Item>
+-        <Form.Item name="reason" label="Reason" rules={[{ required: true, min: 3, max: 500 }]}><Input.TextArea rows={3} maxLength={500} /></Form.Item>
+-        <Form.Item noStyle shouldUpdate={(previous, current) => previous.status !== current.status}>{({ getFieldValue }) => getFieldValue('status') === 'filed' ? <>
+-          <Alert type="warning" title="Record a completed external filing" description="This panel does not submit a tax return. A real filing reference and ready-to-file review are required." className="form-alert" />
+-          <Form.Item name="filing_reference" label="Actual filing reference" rules={[{ required: true, min: 3, max: 200 }]}><Input maxLength={200} /></Form.Item></> : null}</Form.Item>
+-      </Form>
+-    </Modal>
+-  </>;
+-}
+-
+-export function HandoffsPage() {
+-  const { year } = useWorkspace();
+-  const location = useLocation();
+-  const [query, setQuery] = useState<TableQuery>({ ...initialQuery, filters: location.state?.status ? { status: String(location.state.status) } : {} });
+-  return <><div className="page-heading"><div><span className="eyebrow">REVIEW & COLLABORATE</span><h1>Handoff queue</h1><p>Every request for accountant help, from first review to recorded filing.</p></div><span className="heading-chip">{year} · Live requests</span></div>
+-    <HandoffTable query={{ ...query, filters: { ...query.filters, tax_year: year } }} onQuery={setQuery} />
+-  </>;
+-}
++import { useMemo, useState } from 'react';
++import { useQuery, useQueryClient } from '@tanstack/react-query';
++import { Alert, App, Avatar, Button, Form, Input, Modal, Select, Space, Tooltip } from 'antd';
++import { UserRoundCog } from 'lucide-react';
++import type { ColumnDef } from '@tanstack/react-table';
++import { Link, useLocation } from 'react-router-dom';
++import { api, request } from '../api/client';
++import { useSession, useWorkspace } from '../auth/context';
++import { can } from '../auth/permissions';
++import { initialQuery, type Handoff, type HandoffStatus, type Page, type Staff, type TableQuery } from '../api/types';
++import { DataTable } from '../components/DataTable';
++import { StatusBadge } from '../components/StatusBadge';
++import { date, initials, label } from '../lib/format';
++import { HandoffWorkflow } from '../components/Workflow';
++import { ExplainNumber } from '../components/ExplainNumber';
++import { QueryState } from '../components/States';
++
++const statuses: HandoffStatus[] = ['new', 'in_review', 'waiting_on_driver', 'ready_to_file', 'filed'];
++
++function AssignDialog({ selected, close, done }: { selected: Handoff[]; close: () => void; done: () => void }) {
++  const { message, modal } = App.useApp();
++  const [busy, setBusy] = useState(false);
++  const [search, setSearch] = useState('');
++  const [accountantPage, setAccountantPage] = useState(1);
++  const [form] = Form.useForm();
++  const result = useQuery({ queryKey: ['accountants', search, accountantPage], queryFn: ({ signal }) => request<Page<Staff>>('/staff/accountants/search',
++    { method: 'POST', body: { ...initialQuery, sort: 'name', order: 'asc', search, page: accountantPage, page_size: 25 }, signal }) });
++  const submit = async (values: { accountant_id: string; reason: string }) => {
++    const target = result.data?.items.find(row => row.id === values.accountant_id);
++    const confirmed = await modal.confirm({ title: 'Confirm driver reassignment', content: `Assign ${[...new Set(selected.map(row => row.driver_name))].join(', ')} to ${target?.name || 'the selected accountant'}? All their handoffs and financial access move to this accountant. The change and reason will be audited.`, okText: 'Confirm reassignment' });
++    if (!confirmed) return;
++    setBusy(true);
++    try {
++      await api.mutate('/handoffs/assign', { ...values, ids: selected.map(row => row.id), versions: Object.fromEntries(selected.map(row => [row.id, row.version])) });
++      void message.success('Driver assignment updated.'); done(); close();
++    } catch (error) { void message.error((error as Error).message); }
++    finally { setBusy(false); }
++  };
++  return <Modal title={`Assign ${selected.length} handoff(s)`} open onCancel={close} onOk={() => form.submit()} confirmLoading={busy}>
++    <Alert type="info" title="Assignment is at driver level" description="Reassigning a handoff also reassigns that driver's other handoffs and financial access." className="form-alert" />
++    <QueryState pending={result.isPending} error={result.error} retry={result.refetch} empty={result.isSuccess && !result.data.items.length} emptyMessage="No eligible accountant matches this search and team scope. Clear the search or ask an admin."><p>{result.data?.total} eligible accountant(s) in this search.</p></QueryState>
++    <Form form={form} layout="vertical" onFinish={submit}>
++      <Form.Item name="accountant_id" label="Accountant" rules={[{ required: true }]}><Select showSearch={{ filterOption: false, onSearch: value => { setSearch(value); setAccountantPage(1); } }}
++        loading={result.isPending} options={result.data?.items.map(staff => ({ value: staff.id, label: `${staff.name} · ${label(staff.role)}` }))} placeholder="Search an accountant" /></Form.Item>
++      {(result.data?.total || 0) > 25 && <Space><Button disabled={accountantPage === 1} onClick={() => setAccountantPage(p => p - 1)}>Previous</Button><span>Page {accountantPage}</span><Button disabled={accountantPage * 25 >= (result.data?.total || 0)} onClick={() => setAccountantPage(p => p + 1)}>Next</Button></Space>}
++      <Form.Item name="reason" label="Reason for assignment" rules={[{ required: true, min: 3, max: 500 }]}><Input.TextArea rows={3} maxLength={500} /></Form.Item>
++    </Form>
++  </Modal>;
++}
++
++export function HandoffTable({ query, onQuery, compact = false }: { query: TableQuery; onQuery: (query: TableQuery) => void; compact?: boolean }) {
++  const active = useSession()!;
++  const cache = useQueryClient();
++  const { message, modal } = App.useApp();
++  const [history, setHistory] = useState<Handoff | null>(null);
++  const [assigning, setAssigning] = useState<{ rows: Handoff[]; clear: () => void } | null>(null);
++  const [editing, setEditing] = useState<Handoff | null>(null);
++  const [busy, setBusy] = useState(false);
++  const [form] = Form.useForm();
++  const refresh = () => { void cache.invalidateQueries({ queryKey: ['table'] }); void cache.invalidateQueries({ queryKey: ['dashboard'] }); };
++  const columns = useMemo<ColumnDef<Handoff>[]>(() => [
++    { id: 'driver', header: 'Driver', enableSorting: false, cell: ({ row }) => <Link to={`/drivers/${row.original.driver_id}`} className="driver-cell"><Avatar size={34} className="driver-avatar">{initials(row.original.driver_name)}</Avatar><span><strong>{row.original.driver_name}</strong><small>{row.original.driver_email || 'Email not supplied'}</small></span></Link> },
++    { accessorKey: 'tax_year', header: 'Tax year', cell: ({ row }) => row.original.tax_year || <span className="muted">Year not supplied</span> },
++    { accessorKey: 'request_type', header: 'Request', enableSorting: false, cell: ({ row }) => label(row.original.request_type) },
++    { accessorKey: 'status', header: 'Status', cell: ({ row }) => <StatusBadge status={row.original.status} /> },
++    { accessorKey: 'accountant_name', header: 'Accountant', enableSorting: false, cell: ({ row }) => row.original.accountant_name || <span className="unassigned">Unassigned</span> },
++    { accessorKey: 'created_at', header: 'Age', cell: ({ row }) => <span title={date(row.original.created_at)}>{row.original.age_days}d<ExplainNumber name="Handoff age" year={row.original.tax_year || 'Not supplied'}><p>Requested {date(row.original.created_at)}. Server age: {row.original.age_days} days.</p></ExplainNumber></span> },
++    { id: 'actions', header: 'Next action / history', enableSorting: false, cell: ({ row }) => <Space><Tooltip title={!can(active.staff.role, 'edit') ? 'Your role is read-only.' : row.original.status === 'filed' && !can(active.staff.role, 'approve_submission') ? 'Filed records require a senior accountant or admin.' : row.original.status === 'ready_to_file' && !can(active.staff.role, 'approve_submission') ? 'Cannot record filing: a senior accountant or admin must sign off. You can still update the review.' : 'Update the status and record a reason in the audit trail.'}><span><Button className="row-action" size="small" disabled={!can(active.staff.role, 'edit') || row.original.status === 'filed' && !can(active.staff.role, 'approve_submission')} onClick={() => { setEditing(row.original); form.setFieldsValue({ status: ['new', 'waiting_on_driver'].includes(row.original.status) ? 'in_review' : row.original.status === 'ready_to_file' && can(active.staff.role, 'approve_submission') ? 'filed' : row.original.status, reason: '', filing_reference: row.original.filing_reference }); }}>{row.original.status === 'new' ? 'Start review' : row.original.status === 'waiting_on_driver' ? 'Resume review' : row.original.status === 'ready_to_file' ? can(active.staff.role, 'approve_submission') ? 'Record filing' : 'Review handoff' : 'Update'}</Button></span></Tooltip><Button size="small" onClick={() => setHistory(row.original)}>History</Button></Space> },
++  ], [form, active.staff.role]);
++  const update = async (values: { status: HandoffStatus; reason: string; filing_reference?: string }) => {
++    if (!editing) return;
++    if (values.status === 'filed') {
++      const confirmed = await modal.confirm({ title: 'Record completed external filing?', content: `Mark ${editing.driver_name}, ${editing.tax_year || 'year not supplied'}, as Filed with reference ${values.filing_reference}? This records your sign-off and reason; it does not submit anything to HMRC.`, okText: 'Confirm external filing' });
++      if (!confirmed) return;
++    }
++    setBusy(true);
++    try {
++      await api.mutate(`/handoffs/${editing.id}`, { ...values, filing_reference: values.filing_reference || null, expected_version: editing.version }, 'PATCH');
++      void message.success('Handoff updated.'); setEditing(null); refresh();
++    } catch (error) { void message.error((error as Error).message); }
++    finally { setBusy(false); }
++  };
++  return <><DataTable<Handoff> resource="handoffs" title="Handoff queue" columns={columns} query={query} onQuery={onQuery}
++    selectable={!compact && can(active.staff.role, 'assign')}
++    toolbar={<Select allowClear aria-label="Filter handoff status" placeholder="All statuses" value={query.filters.status} className="status-filter"
++      options={statuses.map(status => ({ value: status, label: label(status) }))}
++      onChange={status => { const filters = { ...query.filters }; if (status) filters.status = status; else delete filters.status; onQuery({ ...query, page: 1, filters }); }} />}
++    selectionAction={(rows, clear) => <Button size="small" type="primary" icon={<UserRoundCog />} onClick={() => setAssigning({ rows, clear })}>Assign accountant</Button>} />
++    {assigning && <AssignDialog selected={assigning.rows} close={() => setAssigning(null)} done={() => { assigning.clear(); refresh(); }} />}
++    <Modal title="Update handoff" open={Boolean(editing)} onCancel={() => setEditing(null)} onOk={() => form.submit()} confirmLoading={busy} destroyOnHidden>
++      {editing && <HandoffWorkflow record={editing} />}
++      <Form form={form} layout="vertical" onFinish={update}><Form.Item name="status" label="Status" rules={[{ required: true }]}><Select options={statuses.filter(status => status !== 'filed' || can(active.staff.role, 'approve_submission')).map(status => ({ value: status, label: label(status), disabled: status === 'filed' && editing?.status !== 'ready_to_file' }))} /></Form.Item>
++        {editing?.status !== 'ready_to_file' && <p>Cannot record filing: the current handoff must be Ready to file.</p>}
++        <Form.Item name="reason" label="Reason" rules={[{ required: true, min: 3, max: 500 }]}><Input.TextArea rows={3} maxLength={500} /></Form.Item>
++        <Form.Item noStyle shouldUpdate={(previous, current) => previous.status !== current.status}>{({ getFieldValue }) => getFieldValue('status') === 'filed' ? <>
++          <Alert type="warning" title="Record a completed external filing" description="This panel does not submit a tax return. A real filing reference and ready-to-file review are required." className="form-alert" />
++          <Form.Item name="filing_reference" label="Actual filing reference" rules={[{ required: true, min: 3, max: 200 }]}><Input maxLength={200} /></Form.Item></> : null}</Form.Item>
++      </Form>
++    </Modal>
++    <Modal title="Handoff history" open={Boolean(history)} onCancel={() => setHistory(null)} footer={<Button onClick={() => setHistory(null)}>Close</Button>} width={900}>{history && <HandoffWorkflow record={history} />}</Modal>
++  </>;
++}
++
++export function HandoffsPage() {
++  const { year } = useWorkspace();
++  const location = useLocation();
++  const [query, setQuery] = useState<TableQuery>({ ...initialQuery, filters: location.state?.status ? { status: String(location.state.status) } : {} });
++  return <><div className="page-heading"><div><span className="eyebrow">REVIEW & COLLABORATE</span><h1>Handoff queue</h1><p>Every request for accountant help, from first review to recorded filing.</p></div><span className="heading-chip">{year} · Live requests</span></div>
++    <HandoffTable query={{ ...query, filters: { ...query.filters, tax_year: year } }} onQuery={setQuery} />
++  </>;
++}
+--- a/accountant-panel/src/components/StatusBadge.tsx
++++ b/accountant-panel/src/components/StatusBadge.tsx
+@@ -1,4 +1,5 @@
+-import { Tag } from 'antd';
++import { Tag, Tooltip } from 'antd';
++import { statusGlossary } from '../lib/business';
+ import { label } from '../lib/format';
+ 
+ const colors: Record<string, string> = {
+@@ -8,5 +9,7 @@
+   rejected: 'expense', overdue: 'expense',
+ };
+ export function StatusBadge({ status }: { status: string }) {
+-  return <Tag className="status-badge" data-tone={colors[status] || 'neutral'}><span className="status-dot" aria-hidden="true" />{label(status)}</Tag>;
++  const explanation = statusGlossary[status];
++  const description = explanation ? `${explanation.meaning} Next owner: ${explanation.owner}. Next: ${explanation.trigger}. Status changes are recorded by the backend; they are not automatic.` : 'Status returned by the server. Meaning and next owner are not configured; ask an administrator.';
++  return <Tooltip title={description}><Tag tabIndex={0} aria-label={`${label(status)}. ${description}`} className="status-badge" data-tone={colors[status] || 'neutral'}><span className="status-dot" aria-hidden="true" />{label(status)}</Tag></Tooltip>;
+ }
+--- a/accountant-panel/src/components/AiIndicator.tsx
++++ b/accountant-panel/src/components/AiIndicator.tsx
+@@ -1,6 +1,6 @@
+ import { Check, Sparkles } from "lucide-react";
+ 
+-export function AiIndicator({ reviewed = false }: { reviewed?: boolean }) {
++export function AiIndicator({ reviewed = false, reviewerName }: { reviewed?: boolean; reviewerName?: string | null }) {
+   return (
+     <span className={reviewed ? "reviewed-chip" : "ai-chip"}>
+       {reviewed ? (
+@@ -8,12 +8,13 @@
+       ) : (
+         <Sparkles aria-hidden="true" />
+       )}
+-      {reviewed ? "Reviewed" : "AI suggested"}
++      {reviewed ? reviewerName ? `Reviewed by ${reviewerName}` : 'Reviewed · reviewer not recorded' : "AI suggested"}
+     </span>
+   );
+ }
+ 
+ export function ConfidenceBar({ confidence }: { confidence: unknown }) {
++  if (confidence && typeof confidence === 'object' && Object.keys(confidence).length) return <div>{Object.entries(confidence).map(([field, value]) => <div key={field}><small>{field.replaceAll('_', ' ')}</small><ConfidenceBar confidence={value} /></div>)}</div>;
+   if (
+     confidence == null ||
+     typeof confidence === "object" ||
+--- a/accountant-panel/src/components/ExplainNumber.tsx
++++ b/accountant-panel/src/components/ExplainNumber.tsx
+@@ -0,0 +1,13 @@
++import { useState, type ReactNode } from 'react';
++import { Button, Drawer } from 'antd';
++import { Info } from 'lucide-react';
++import { numberFormulas } from '../lib/business';
++export function ExplainNumber({ name, year, children, sources }: { name: string; year: string; children?: ReactNode; sources?: ReactNode }) {
++  const [open, setOpen] = useState(false);
++  return <><Button className="number-info" size="small" type="text" aria-label={`Explain ${name.toLowerCase()}`} icon={<Info size={14} />} onClick={() => setOpen(true)} />
++    <Drawer title={`${name} — calculation details`} open={open} onClose={() => setOpen(false)} size={560}>
++      <p>Tax year {year}. Amounts are authoritative server results.</p><h3>Formula</h3><p>{numberFormulas[name] || 'Returned by the server from the selected record. No value is inferred when an input is unknown.'}</p>
++      <h3>Inputs and sources</h3>{children || <p>Source: permitted records returned by the staff API for this tax year.</p>}
++      {sources && <><h3>Rates and references</h3>{sources}</>}
++    </Drawer></>;
++}
+--- a/accountant-panel/src/components/TaxExplanation.tsx
++++ b/accountant-panel/src/components/TaxExplanation.tsx
+@@ -0,0 +1,11 @@
++import type { TaxResult } from '../api/types';
++import { date, label, money } from '../lib/format';
++import { ExplainNumber } from './ExplainNumber';
++export function TaxExplanation({ name, result, year }: { name: string; result: TaxResult; year: string }) {
++  return <ExplainNumber name={name} year={year} sources={result.rules.rules.map(rule => <p key={rule.code}><a href={rule.official_url} target="_blank" rel="noreferrer">{label(rule.code)}</a> · verified {date(rule.verified_at)}<br />{Object.entries(rule.value).map(([key, value]) => `${label(key)}: ${JSON.stringify(value)}`).join('; ')}</p>)}>
++    <dl className="breakdown">{Object.entries(result.estimate).filter(([key]) => key.endsWith('_pence') || key === 'as_of').map(([key, value]) => <div key={key}><dt>{label(key.replace('_pence', ''))}</dt><dd>{key.endsWith('_pence') ? money(value as number) : String(value)}</dd></div>)}</dl>
++    <h3>Server tax bands</h3>{result.estimate.bands?.length ? result.estimate.bands.map(band => <p key={`${band.label}-${band.rate}`}>{band.label}: {money(band.base_pence)} × {band.rate} = {money(band.tax_pence)}</p>) : <p>No taxable bands returned.</p>}
++    <h3>Supplied tax-profile inputs</h3><dl className="breakdown">{Object.entries(result.calculationContext || {}).map(([key, value]) => <div key={key}><dt>{label(key)}</dt><dd>{key.endsWith('_pence') ? money(value as number | null) : typeof value === 'boolean' ? value ? 'Yes' : 'No' : typeof value === 'object' ? JSON.stringify(value) : String(value ?? '—')}</dd></div>)}</dl><p>Source: saved tax profile. Missing fields are not supplied; employer names and identifiers are omitted.</p>
++    <p>Source: tax API, rule set {result.rules.id}, version {result.rules.version}. Savings tax is included in income tax. PAYE and loan adjustments apply as returned above.</p>
++  </ExplainNumber>;
++}
+--- a/accountant-panel/src/components/Workflow.tsx
++++ b/accountant-panel/src/components/Workflow.tsx
+@@ -0,0 +1,48 @@
++import { useState } from 'react';
++import { Button, Empty, Select } from 'antd';
++import { Link } from 'react-router-dom';
++import type { Handoff, Overview } from '../api/types';
++import { datetime } from '../lib/format';
++import { workflowNames, workflowStatuses, statusGlossary } from '../lib/business';
++import { useSession } from '../auth/context';
++import { can } from '../auth/permissions';
++import { StatusBadge } from './StatusBadge';
++import { ExplainNumber } from './ExplainNumber';
++
++export function HandoffWorkflow({ record }: { record: Handoff }) {
++  return <section aria-label="Handoff workflow"><h3>{record.request_type.replaceAll('_', ' ')} · {record.tax_year || 'Year not supplied'}</h3>
++    <StatusBadge status={record.status} /><div className="workflow-steps">{workflowStatuses.map((status, index) => {
++      const events = record.workflowEvents.filter(event => event.after?.status === status);
++      const latest = events[0];
++      return <div className="workflow-step" key={status} aria-current={record.status === status ? 'step' : undefined}><strong>{workflowNames[index]}</strong><small>{latest ? datetime(latest.created_at) : status === 'new' ? datetime(record.created_at) : 'No transition recorded'}</small><small>{latest?.actor_name || (status === 'new' ? 'Driver request' : '—')}</small></div>;
++    })}</div><p>Next owner: {statusGlossary[record.status].owner}. {statusGlossary[record.status].trigger}.</p>
++    <details><summary>Record audit trail ({record.workflowEvents.length} recent events)</summary>
++      {record.workflowEvents.length ? record.workflowEvents.map(event => <div className="payment-row" key={event.id}><span>{event.actor_name} · {event.action.replaceAll('_', ' ')}<small>{datetime(event.created_at)}</small><small>{String(event.before?.status ?? '—')} → {String(event.after?.status ?? '—')}</small>{typeof event.after?.reason === 'string' && <small>Reason: {event.after.reason}</small>}</span></div>) : <p>No staff changes recorded. Requested {datetime(record.created_at)} by the driver.</p>}
++      <Link to={`/drivers/${record.driver_id}`} state={{ tab: 'activity' }}>Open complete driver activity log</Link>
++    </details>
++  </section>;
++}
++
++export function WorkflowPanel({ data, tax = false, onTab }: { data: Overview; tax?: boolean; onTab?: (tab: string) => void }) {
++  const active = useSession();
++  const [chosen, setChosen] = useState<string>();
++  const record = data.handoffs.find(row => row.id === chosen) || data.handoffs[0];
++  const blockers = [
++    { pass: Boolean(record), name: 'Accountant handoff exists', fix: 'Open handoff queue', to: '/handoffs' },
++    { pass: record?.status === 'ready_to_file', name: 'Current handoff is Ready to file', fix: 'Review handoff', to: '/handoffs' },
++    { pass: can(active?.staff.role, 'approve_submission'), name: 'Senior accountant or admin signs off', fix: 'Ask a senior accountant', to: '/handoffs' },
++    { pass: Boolean(record?.filing_reference), name: 'Actual external filing reference supplied', fix: 'Enter reference when recording filing', to: '/handoffs' },
++  ];
++  const next = data.totals.pending_receipts ? { text: `Review ${data.totals.pending_receipts} receipt(s)`, tab: 'expenses' } : record?.status === 'waiting_on_driver' ? { text: 'Request missing information', tab: 'messages' } : { text: 'Review tax workspace', tab: 'tax' };
++  return <section className="surface profile-card workflow-card"><div className="section-heading"><h2>{tax ? 'Filing checks & workflow' : 'Next action & workflow'}</h2>
++    {!tax && <Button type="primary" onClick={() => onTab?.(next.tab)}>{next.text}</Button>}</div>
++    {data.handoffs.length > 1 && <Select aria-label="Choose handoff" value={record?.id} onChange={setChosen} options={data.handoffs.map(row => ({ value: row.id, label: `${row.request_type} · ${row.status} · ${row.id.slice(0, 8)}` }))} />}
++    {record ? <HandoffWorkflow record={record} /> : <Empty description="No accountant handoff recorded for this year"><Link to="/handoffs">Open handoff queue</Link></Empty>}
++    {tax && <><h3>Backend filing requirements</h3><p>This panel records a completed external filing. It does not submit a return. Checks refer to the selected handoff; changes require its current version.</p><ul className="checklist">{blockers.map(item => <li key={item.name}><span>{item.pass ? '✓ Pass' : '✕ Required'}</span><span>{item.name}</span><Link to={item.to}>{item.fix}</Link></li>)}</ul>
++      <h3>Review advisories</h3><p>These checks support review; the backend currently does not enforce them as filing gates.</p><ul className="checklist">
++        <li><span>{data.totals.pending_receipts === 0 ? '✓' : '⚠'} {data.totals.pending_receipts} pending receipts</span><ExplainNumber name="Pending receipts" year={data.tax_year} /><Link to={`/drivers/${data.id}`} state={{ tab: 'expenses' }}>Review evidence</Link></li>
++        <li><span>{data.totals.unresolved_issues === 0 ? '✓' : '⚠'} {data.totals.unresolved_issues} unresolved reconciliation issues</span><ExplainNumber name="Unresolved issues" year={data.tax_year} /><Link to={`/drivers/${data.id}`} state={{ tab: 'messages' }}>Request reconciliation in the driver app</Link></li>
++      </ul><Link to="/handoffs"><Button type="primary">{record?.status === 'ready_to_file' && can(active?.staff.role, 'approve_submission') ? 'Record external filing in queue' : 'Resolve handoff requirements'}</Button></Link></>}
++    <Link to={`/drivers/${data.id}`} state={{ tab: 'activity' }}>Who changed what and when → Activity log</Link>
++  </section>;
++}
+--- a/accountant-panel/src/components/RecordAudit.tsx
++++ b/accountant-panel/src/components/RecordAudit.tsx
+@@ -0,0 +1,12 @@
++import { useState } from 'react';
++import { Button, Drawer } from 'antd';
++import { AuditTimeline } from './AuditTimeline';
++import { initialQuery, type TableQuery } from '../api/types';
++export function RecordAudit({ driverId, recordId }: { driverId: string; recordId: string }) {
++  const [open, setOpen] = useState(false);
++  const [query, setQuery] = useState<TableQuery>({ ...initialQuery, filters: { resource_id: recordId } });
++  return <><Button size="small" onClick={() => setOpen(true)}>Audit</Button><Drawer title="Record audit trail" open={open} onClose={() => setOpen(false)} size={800} destroyOnHidden>
++    <p>Recorded staff and ledger changes for this record. Legacy entries may have no named actor.</p>
++    {open && <AuditTimeline resource={`drivers/${driverId}/activity`} query={query} onQuery={value => setQuery({ ...value, filters: { ...value.filters, resource_id: recordId } })} />}
++  </Drawer></>;
++}
+--- a/accountant-panel/src/components/ReceiptViewer.tsx
++++ b/accountant-panel/src/components/ReceiptViewer.tsx
+@@ -23,6 +23,7 @@
+ import { AiIndicator, ConfidenceBar } from "./AiIndicator";
+ import type { Receipt } from "../api/types";
+ import { feedbackDurationSeconds } from "../theme/motion";
++import { RecordAudit } from './RecordAudit';
+ 
+ export function ReceiptViewer({
+   driverId,
+@@ -37,7 +38,7 @@
+ }) {
+   const { config } = useWorkspace();
+   const staff = useSession()!.staff;
+-  const { message, notification } = App.useApp();
++  const { message, notification, modal } = App.useApp();
+   const cache = useQueryClient();
+   const [url, setUrl] = useState<string | null>(null);
+   const [busy, setBusy] = useState(false);
+@@ -109,16 +110,20 @@
+         "occurred_on",
+         "amount_gbp",
+       ]);
++      let enteredPence: number;
++      try { enteredPence = currencyPence(extracted.amount_gbp || ''); }
++      catch (error) { void message.warning((error as Error).message); return; }
+       if (
+         extracted.merchant !== (receipt.merchant || "") ||
+         extracted.occurred_on !== (receipt.occurred_on || "") ||
+-        currencyPence(extracted.amount_gbp) !== receipt.amount_pence
++        enteredPence !== receipt.amount_pence
+       ) {
+         void message.warning(
+           "Save the corrected extracted fields before approving or rejecting.",
+         );
+         return;
+       }
++      if (decision === 'reject' && !await modal.confirm({ title: 'Exclude this receipt?', content: `Record receipt ${receipt.merchant || receipt.id} as excluded with no deduction? Your reason will be audited. A later correction requires reversing the confirmation.`, okText: 'Confirm exclusion', okButtonProps: { danger: true } })) return;
+       setBusy(true);
+       try {
+         const posted = await api.mutate<{
+@@ -208,6 +213,7 @@
+       cache,
+       message,
+       notification,
++      modal,
+     ],
+   );
+   useEffect(() => {
+@@ -314,6 +320,7 @@
+             Shortcuts: A approve · R reject · N next
+           </span>
+           <Space>
++            <RecordAudit driverId={driverId} recordId={receiptId} />
+             <Button disabled={!next || busy} onClick={next}>
+               Next receipt
+             </Button>
+@@ -449,11 +456,12 @@
+               </Space>
+               <div className="section-gap">
+                 {receipt.review_status === "confirmed" ? (
+-                  <AiIndicator reviewed />
++                  <AiIndicator reviewed reviewerName={receipt.reviewerName} />
+                 ) : (
+                   receipt.extraction && <AiIndicator />
+                 )}
+               </div>
++              {receipt.extraction && <p className="muted">OCR reason / notes: {receipt.extraction.warnings?.join('; ') || 'No reason supplied by OCR. Confidence is a provider score, not a guarantee of correctness.'}</p>}
+               <h2>{receipt.merchant || "Merchant not supplied"}</h2>
+               <Descriptions
+                 column={1}
+--- a/accountant-panel/src/lib/business.ts
++++ b/accountant-panel/src/lib/business.ts
+@@ -0,0 +1,55 @@
++export const statusGlossary: Record<string, { meaning: string; owner: string; trigger: string }> = {
++  new: { meaning: 'Requested accountant help; review has not started.', owner: 'Assigned accountant or assignment admin', trigger: 'Accountant begins review → In review' },
++  in_review: { meaning: 'Books and evidence are being checked.', owner: 'Assigned accountant', trigger: 'Request missing evidence or mark ready after review' },
++  waiting_on_driver: { meaning: 'Review is waiting for driver information.', owner: 'Driver, followed by accountant', trigger: 'Accountant resumes review when evidence arrives' },
++  ready_to_file: { meaning: 'Accountant has marked the handoff ready.', owner: 'Senior accountant or admin', trigger: 'Record completed external filing with a real reference → Filed' },
++  filed: { meaning: 'A completed external filing has been recorded.', owner: 'Senior accountant or admin', trigger: 'No automatic next step; corrections require senior review' },
++  draft: { meaning: 'Posting is unconfirmed and excluded from totals.', owner: 'Driver or accountant', trigger: 'Review and confirm its originating record' },
++  pending: { meaning: 'Evidence or scan is awaiting processing/review.', owner: 'Scanning service, then reviewer', trigger: 'Scan completes or reviewer records a decision' },
++  confirmed: { meaning: 'Canonical posting is included in confirmed totals.', owner: 'Reviewer', trigger: 'Correction requires reversal before another confirmation' },
++  reversed: { meaning: 'Prior confirmation has been reversed; excluded from totals.', owner: 'Reviewer', trigger: 'Correct the original evidence and confirm again' },
++  claimable: { meaning: 'Eligible business deduction under server rules.', owner: 'Reviewer', trigger: 'Correction or changed eligibility recalculates the deduction' },
++  personal: { meaning: 'Personal cost; no business deduction.', owner: 'Reviewer', trigger: 'Correct the source if classification is wrong' },
++  excluded: { meaning: 'Explicitly excluded; deduction is zero.', owner: 'Reviewer', trigger: 'Reverse and review again if the decision was wrong' },
++  unknown: { meaning: 'Claim classification has not been reviewed.', owner: 'Reviewer', trigger: 'Confirm evidence, category and business share to classify the claim' },
++  clean: { meaning: 'Private evidence passed scanning and can be downloaded.', owner: 'Reviewer', trigger: 'Review the document' },
++  generated: { meaning: 'Server-generated evidence is available.', owner: 'Reviewer', trigger: 'Review or download the document' },
++  failed: { meaning: 'Processing failed; evidence may remain quarantined.', owner: 'Service operator', trigger: 'Resolve the failure and retry when permitted' },
++  infected: { meaning: 'Evidence failed the safety scan and is quarantined.', owner: 'Driver / service operator', trigger: 'Supply replacement evidence' },
++  queued: { meaning: 'Processing job is waiting.', owner: 'Processing service', trigger: 'Worker starts the job → Processing' },
++  processing: { meaning: 'Processing job is running.', owner: 'Processing service', trigger: 'Worker reports success or failure' },
++  succeeded: { meaning: 'Processing completed.', owner: 'Reviewer', trigger: 'Review the resulting evidence' },
++  none: { meaning: 'No subscription record exists.', owner: 'Billing administrator', trigger: 'An approved subscription is created' },
++  trialing: { meaning: 'Trial subscription is recorded.', owner: 'Billing administrator / driver', trigger: 'Trial expires or billing provider activates a plan' },
++  trial_expired: { meaning: 'Recorded trial end has passed.', owner: 'Billing administrator / driver', trigger: 'Billing provider activates an approved plan' },
++  active: { meaning: 'Subscription is recorded as active.', owner: 'Billing provider', trigger: 'Provider sends the next billing status' },
++  past_due: { meaning: 'Billing provider reports an unpaid amount.', owner: 'Driver / billing provider', trigger: 'Provider confirms payment or cancellation' },
++  canceled: { meaning: 'Subscription is recorded as canceled.', owner: 'Billing administrator / driver', trigger: 'Provider confirms a new approved subscription' },
++  rejected: { meaning: 'Review declined the record.', owner: 'Reviewer / driver', trigger: 'Provide corrected evidence and review again' },
++  overdue: { meaning: 'Supplied-year deadline passed and handoff is not filed.', owner: 'Assigned accountant', trigger: 'Complete review and record external filing' },
++};
++export const workflowStatuses = ['new', 'in_review', 'waiting_on_driver', 'ready_to_file', 'filed'] as const;
++export const workflowNames = ['Requested', 'In review', 'Waiting on driver', 'Ready to file', 'Filed'];
++export const numberFormulas: Record<string, string> = {
++  Income: 'Sum of confirmed income postings in the selected tax year through the server as-of date. Drafts and reversals are excluded.',
++  'Deductible expenses': 'Sum of confirmed expense deductible amounts + eligible mileage deduction. Each expense uses reviewed business share and server eligibility rules.',
++  Profit: 'Confirmed income − deductible expenses (including eligible mileage).',
++  'Estimated tax': 'max(0, income tax + Class 4 NI − PAYE tax already paid) + student loan repayment. This is an estimate, not an assessed bill.',
++  'Estimated liability': 'max(0, income tax + Class 4 NI − PAYE tax already paid) + student loan repayment. Savings tax is already included in income tax.',
++  'Income tax': 'Sum of server tax-band amounts, plus applicable savings tax and after supported relief adjustments. Each band uses its returned base × rate, rounded by the server.',
++  'Class 4 NI': 'max(0, min(profit, upper threshold) − lower threshold) × first rate + max(0, profit − upper threshold) × remaining rate. Server applies supported exemptions. Thresholds and rates are listed below from the API.',
++  'Personal allowance': 'max(0, standard allowance − floor(max(0, combined income − taper start) ÷ 2)), then any supported Marriage Allowance adjustment. PAYE/property income may use some of this allowance. Standard allowance and taper start come from the API rules below.',
++  'Payment amount': 'Payment-on-account eligibility uses prior assessed liability and the configured outside-SA exemption. If eligible: first payment = floor(prior liability ÷ 2); second = prior liability − first. Balancing amount = projected annual liability − advance payments + adjustments. No prior assessment means the amount is unknown. These are server estimates, not an HMRC account balance.',
++  'Mileage deduction': 'For each eligible vehicle: eligible business miles in each mileage band × that vehicle/year rate; sum vehicle deductions. Only mileage-method elections qualify; hackney eligibility differs.',
++  'Visible drivers': 'Count of non-staff drivers within your access scope, across tax years.',
++  'Assigned drivers': 'Count of non-staff drivers within your access scope, across tax years.',
++  'Pending handoffs': 'Count of visible handoffs whose status is not Filed, for the selected year plus handoffs with no supplied year.',
++  'Returns due soon': 'Non-filed handoffs with a supplied selected year when its deadline is 0–30 days away. Missing-year handoffs are excluded.',
++  'Overdue returns': 'Non-filed handoffs with a supplied selected year whose deadline has passed. Missing-year handoffs are excluded.',
++  'Business miles': 'Sum of active business mileage logs in the selected tax year through today. Recorded miles and deduction-eligible miles can differ.',
++  'Pending receipts': 'Receipts not Confirmed with a date in the selected year, plus all undated receipts. Reversed receipts are included.',
++  'Unresolved issues': 'Open reconciliation issues whose statement period overlaps the selected tax year.',
++  'Handoff age': 'Whole elapsed days since the original accountant request was created, calculated by the server.',
++  'Days to deadline': 'Configured selected-year online deadline − today in Europe/London. Negative values mean overdue.',
++  Workload: 'Count by current handoff status within your access scope for the selected tax year, including handoffs with no supplied year. Bar share = status count ÷ all displayed status counts.',
++};
+--- a/app/api/staff.py
++++ b/app/api/staff.py
+@@ -6,7 +6,7 @@
+ from uuid import UUID
+ 
+ from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile
+-from sqlalchemy import func, literal, select, union_all
++from sqlalchemy import String, func, literal, select, union_all
+ 
+ from app.api import documents, reports, support
+ from app.api.deps import CurrentUser, SessionDep, SettingsDep
+@@ -94,7 +94,28 @@
+     return {**wire(row), "driver_name": summary["name"], "driver_email": summary["email"],
+         "accountant_id": summary["accountant_id"], "accountant_name": summary["accountant_name"],
+         "tax_year": row.tax_year, "request_type": request.data["kind"],
+-        "created_at": request.created_at, "age_days": (utc_now() - request.created_at).days}
++        "created_at": request.created_at, "age_days": (utc_now() - request.created_at).days,
++        "workflow_events": audit_projection(db, row.driver_id, row.id)}
++
++
++def audit_projection(db, driver_id, resource_id):
++    records = db.execute(select(StaffAudit, StaffAccount.name).join(StaffAccount,
++        StaffAccount.id == StaffAudit.actor_id).where(StaffAudit.driver_id == driver_id,
++        StaffAudit.resource_id == resource_id).order_by(StaffAudit.created_at.desc(), StaffAudit.id).limit(50))
++    return [{"id": event.id, "actor_name": name, "action": event.action,
++        "created_at": event.created_at, "before": event.before, "after": event.after} for event, name in records]
++
++
++def review_projection(db, driver_id, resource_id):
++    # A later correction/reversal must not inherit a previous reviewer's name.
++    records = db.execute(select(StaffAudit, StaffAccount.name).join(StaffAccount,
++        StaffAccount.id == StaffAudit.actor_id).where(StaffAudit.driver_id == driver_id,
++        (StaffAudit.resource_id == resource_id) | (StaffAudit.before["id"].astext == str(resource_id)),
++        StaffAudit.action.in_(["receipt_approve", "receipt_reject", "receipt_confirmation_reversed", "receipt_fields_corrected", "expense_corrected"]))
++        .order_by(StaffAudit.created_at.desc(), StaffAudit.id).limit(1)).first()
++    if not records or records[0].action not in {"receipt_approve", "receipt_reject"}:
++        return {"reviewed_by": None, "reviewed_at": None}
++    return {"reviewed_by": records[1], "reviewed_at": records[0].created_at}
+ 
+ 
+ def filtered_drivers(db, staff, data, settings):
+@@ -265,7 +286,10 @@
+         "utr_masked": tax.data.get("utr_masked") if tax else None,
+         "ni_masked": tax.data.get("ni_masked") if tax else None,
+         "driver_profile": driver.data if driver else {}, "subscription": support.subscription(user, db),
+-        "totals": reports.dashboard_response(db, driver_id, data.tax_year)}
++        "totals": reports.dashboard_response(db, driver_id, data.tax_year),
++        "handoffs": [handoff_wire(db, item) for item in db.scalars(select(AccountantHandoff).where(
++            AccountantHandoff.driver_id == driver_id,
++            (AccountantHandoff.tax_year == data.tax_year) | AccountantHandoff.tax_year.is_(None)).order_by(AccountantHandoff.id))]}
+     audit_read(db, auth[0], "financial_overview_view", driver_id)
+     return result
+ 
+@@ -275,7 +299,7 @@
+     allowed = {"income": {"tax_year", "review_status", "claim_status", "source_id"},
+         "expenses": {"tax_year", "review_status", "claim_status", "category_id"},
+         "receipts": {"tax_year", "review_status", "claim_status"}, "mileage": {"tax_year", "vehicle_id"},
+-        "documents": {"scan_status", "mime_type"}, "messages": set(), "notes": {"kind"}, "activity": {"action"}}
++        "documents": {"scan_status", "mime_type"}, "messages": set(), "notes": {"kind"}, "activity": {"action", "resource_id"}}
+     if resource not in allowed:
+         raise HTTPException(404, "Unsupported driver resource")
+     query_filters(data, allowed[resource])
+@@ -299,7 +323,8 @@
+             return {**wire(row), "category_name": category.get("code", "Uncategorised").replace("_", " ").title(),
+                 "source_name": SOURCES.get(row.source_id, {}).get("name"),
+             "ai_category": extraction.get("suggested_category_id"), "ai_confidence": extraction.get("confidence"),
+-                "ai_reason": extraction.get("warnings", []), "receipt_version": receipt.version if receipt else None}
++                "ai_reason": extraction.get("warnings", []), "receipt_version": receipt.version if receipt else None,
++                **review_projection(db, driver_id, row.receipt_id or row.id)}
+         return paginate(db, query, Transaction, data, {"created_at": Transaction.created_at,
+             "occurred_on": Transaction.occurred_on, "amount_pence": Transaction.amount_pence,
+             "review_status": Transaction.review_status}, serialize)
+@@ -350,13 +375,17 @@
+             lambda row: {**wire(row), "author": db.get(StaffAccount, row.staff_id).name if row.staff_id else "Driver"})
+     if resource == "activity":
+         staff_events = select(StaffAudit.id, StaffAudit.created_at, StaffAudit.action, StaffAudit.before,
++            func.coalesce(StaffAudit.resource_id.cast(String), StaffAudit.before["id"].astext).label("resource_id"),
+             StaffAudit.after, StaffAccount.name.label("actor_name")).join(StaffAccount, StaffAccount.id == StaffAudit.actor_id).where(StaffAudit.driver_id == driver_id)
+-        book_events = select(Mutation.id, Mutation.created_at, Mutation.action, Mutation.before, Mutation.after,
++        book_events = select(Mutation.id, Mutation.created_at, Mutation.action, Mutation.before,
++            Mutation.resource_id.cast(String).label("resource_id"), Mutation.after,
+             literal("Driver/service — legacy actor not recorded").label("actor_name")).where(Mutation.owner_id == driver_id)
+         events = union_all(staff_events, book_events).subquery()
+         query = select(events)
+         if data.filters.get("action"):
+             query = query.where(events.c.action == data.filters["action"])
++        if data.filters.get("resource_id"):
++            query = query.where(events.c.resource_id == data.filters["resource_id"])
+         if data.search:
+             query = query.where(events.c.action.ilike("%" + data.search.replace("%", "\\%") + "%"))
+         if data.sort != "created_at":
+@@ -388,7 +417,15 @@
+         if error.status_code not in {404, 409, 422}:
+             raise
+         calculation = {"available": False, "reason": error.detail}
+-    result = {"estimate": calculation, "payments": payment_timeline(db, driver_id, data.tax_year), "rules": rules}
++    safe_inputs = ("region", "has_paye_job", "property_income_pence", "interest_pence", "class4_exempt",
++        "student_loan_plan", "marriage_allowance_status", "marriage_allowance_eligible")
++    calculation_context = {key: context.data[key] for key in safe_inputs if context and key in context.data}
++    if context:
++        calculation_context["employments"] = [{key: item[key] for key in
++            ("gross_annual_pay_pence", "tax_paid_pence", "student_loan_paid_pence") if key in item}
++            for item in context.data.get("employments", [])]
++    result = {"estimate": calculation, "payments": payment_timeline(db, driver_id, data.tax_year),
++        "rules": rules, "calculation_context": calculation_context}
+     audit_read(db, auth[0], "tax_view", driver_id)
+     return result
+ 
+@@ -433,6 +470,7 @@
+     result = receipt_wire(db, row)
+     file = owned(db, PrivateFile, driver_id, row.file_id)
+     result.update({"file_id": file.id, "scan_status": file.scan_status, "mime_type": file.mime_type})
++    result.update(review_projection(db, driver_id, row.id))
+     audit_read(db, auth[0], "receipt_view", driver_id, {"receipt_id": str(receipt_id)})
+     return result
+ 
+--- a/app/services/tax.py
++++ b/app/services/tax.py
+@@ -17,6 +17,8 @@
+ 
+ VERIFIED_AT = "2026-10-27T00:00:00Z"
+ RULE_VERSION = "2026-10-27.1"
++STUDENT_LOAN_THRESHOLDS = {"plan1": 2690000, "plan2": 2938500, "plan4": 3379500, "plan5": 2500000, "postgraduate": 2100000}
++STUDENT_LOAN_RATES = {"undergraduate": "0.09", "postgraduate": "0.06"}
+ SOURCES = {
+     "income": "https://www.gov.uk/government/publications/rates-and-allowances-income-tax/income-tax-rates-and-allowances-current-and-past",
+     "scotland": "https://www.mygov.scot/scottish-income-tax/current-income-tax-rates",
+@@ -51,7 +53,8 @@
+             "trading": {"allowance_pence": 100000, "eligibility_declaration_required": True},
+             "poa": {"minimum_bill_pence": 100000, "outside_sa_exemption_percent": "80"},
+             "savings": {"starting_rate_max_pence": 500000,"basic_psa_pence":100000,"higher_psa_pence":50000},
+-            "student_loans": {"single_plan_only":True,"unearned_income_inclusion_threshold_pence":200000},
++            "student_loans": {"single_plan_only":True,"unearned_income_inclusion_threshold_pence":200000,
++                "verified_plan_tax_year": "2026-27", "thresholds_pence": STUDENT_LOAN_THRESHOLDS, "rates": STUDENT_LOAN_RATES},
+             "marriage": {"transfer_pence":126000,"recipient_reduction_pence":25200,"declaration_required":True},
+         }.items()]}
+ 
+@@ -125,9 +128,9 @@
+     loan=0
+     if plan not in {None,"none"}:
+         if year!="2026-27": raise HTTPException(422,"Student loan rules currently verified for 2026-27 only")
+-        thresholds={"plan1":2690000,"plan2":2938500,"plan4":3379500,"plan5":2500000,"postgraduate":2100000}
++        thresholds=STUDENT_LOAN_THRESHOLDS
+         loan_income=pay+max(0,profit)+(property_income+interest if property_income+interest>200000 else 0)
+-        rate=Decimal(".06") if plan=="postgraduate" else Decimal(".09")
++        rate=Decimal(STUDENT_LOAN_RATES["postgraduate" if plan=="postgraduate" else "undergraduate"])
+         # SA student loan repayment is rounded down to whole GBP.
+         loan=max(0,int(Decimal(max(0,loan_income-thresholds[plan]))*rate/100)*100-
+                  sum(e.get("student_loan_paid_pence",0) for e in employments))

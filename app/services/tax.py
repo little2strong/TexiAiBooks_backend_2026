@@ -17,6 +17,8 @@ from app.services.ledger import mileage_deduction, totals
 
 VERIFIED_AT = "2026-10-27T00:00:00Z"
 RULE_VERSION = "2026-10-27.1"
+STUDENT_LOAN_THRESHOLDS = {"plan1": 2690000, "plan2": 2938500, "plan4": 3379500, "plan5": 2500000, "postgraduate": 2100000}
+STUDENT_LOAN_RATES = {"undergraduate": "0.09", "postgraduate": "0.06"}
 SOURCES = {
     "income": "https://www.gov.uk/government/publications/rates-and-allowances-income-tax/income-tax-rates-and-allowances-current-and-past",
     "scotland": "https://www.mygov.scot/scottish-income-tax/current-income-tax-rates",
@@ -51,7 +53,8 @@ def rule_set(year, region):
             "trading": {"allowance_pence": 100000, "eligibility_declaration_required": True},
             "poa": {"minimum_bill_pence": 100000, "outside_sa_exemption_percent": "80"},
             "savings": {"starting_rate_max_pence": 500000,"basic_psa_pence":100000,"higher_psa_pence":50000},
-            "student_loans": {"single_plan_only":True,"unearned_income_inclusion_threshold_pence":200000},
+            "student_loans": {"single_plan_only":True,"unearned_income_inclusion_threshold_pence":200000,
+                "verified_plan_tax_year": "2026-27", "thresholds_pence": STUDENT_LOAN_THRESHOLDS, "rates": STUDENT_LOAN_RATES},
             "marriage": {"transfer_pence":126000,"recipient_reduction_pence":25200,"declaration_required":True},
         }.items()]}
 
@@ -125,9 +128,9 @@ def calculate(profit, context, year):
     loan=0
     if plan not in {None,"none"}:
         if year!="2026-27": raise HTTPException(422,"Student loan rules currently verified for 2026-27 only")
-        thresholds={"plan1":2690000,"plan2":2938500,"plan4":3379500,"plan5":2500000,"postgraduate":2100000}
+        thresholds=STUDENT_LOAN_THRESHOLDS
         loan_income=pay+max(0,profit)+(property_income+interest if property_income+interest>200000 else 0)
-        rate=Decimal(".06") if plan=="postgraduate" else Decimal(".09")
+        rate=Decimal(STUDENT_LOAN_RATES["postgraduate" if plan=="postgraduate" else "undergraduate"])
         # SA student loan repayment is rounded down to whole GBP.
         loan=max(0,int(Decimal(max(0,loan_income-thresholds[plan]))*rate/100)*100-
                  sum(e.get("student_loan_paid_pence",0) for e in employments))

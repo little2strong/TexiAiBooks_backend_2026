@@ -1,0 +1,557 @@
+--- a/accountant-panel/src/styles.css
++++ b/accountant-panel/src/styles.css
+@@ -1,9 +1,43 @@
+ @import "antd/dist/reset.css";
+ @import "./theme/tokens.css";
+ 
+-* {
++*, *::before, *::after {
+   box-sizing: border-box;
+ }
++html { scrollbar-gutter: stable; }
++/* Stable frames are shared by loaded, pending, empty and failed panels. */
++.query-panel { min-height: 280px; }
++.query-table { height: 360px; overflow: auto; }
++.query-dashboard { min-height: 530px; }
++.query-profile { min-height: 650px; }
++.query-tax { min-height: 700px; }
++.loading-detail { min-height: 272px; }
++.loading-profile { min-height: 162px; }
++.loading-workflow { min-height: 420px; }
++.loading-filing { min-height: 880px; }
++.loading-tax-notice { height: 100px; }
++.cell-content { height: calc(var(--row-height) - 17px); display: flex; align-items: center; gap: 8px; overflow: auto; }
++.table-compact .cell-content { height: calc(var(--row-compact) - 9px); }
++.table-scroll td[data-numeric="true"] .cell-content { justify-content: flex-end; }
++.selection-bar { min-height: 48px; }
++.number-label { display: flex; align-items: center; gap: 4px; }
++.number-info { flex-shrink: 0; }
++.workflow-card { margin-bottom: var(--space-5); }
++.workflow-steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-block: 16px; }
++.workflow-step { border: 1px solid var(--border); padding: 12px; border-radius: var(--radius-control); }
++.workflow-step[aria-current="step"] { outline: 2px solid var(--brand-primary); }
++.workflow-step small { display: block; margin-top: 8px; }
++.checklist { list-style: none; padding: 0; }
++.checklist li { display: flex; flex-wrap: wrap; gap: 8px; padding-block: 8px; border-bottom: 1px solid var(--border); }
++.checklist a { margin-left: auto; }
++.breakdown { margin: 0; }
++.breakdown dt { margin-top: 16px; font-weight: 600; }
++.breakdown dd { margin: 4px 0; overflow-wrap: anywhere; }
++@media (max-width: 900px) { .workflow-steps { grid-template-columns: 1fr; } }
++/* Application motion never animates layout or colour properties. */
++.sidebar, .workspace-body, .status-badge, .table-scroll tbody tr, .sidebar a { transition: opacity var(--motion-micro); }
++.row-flash, .row-approved { animation: none; }
++@font-face { font-family: 'Inter fallback'; src: local('Arial'); size-adjust: 107%; ascent-override: 90%; descent-override: 22%; line-gap-override: 0%; }
+ html,
+ body {
+   margin: 0;
+@@ -131,7 +165,7 @@
+ .ant-btn {
+   font-weight: 500;
+   transition:
+-    background var(--motion-micro) var(--ease-standard),
++    opacity var(--motion-micro) var(--ease-standard),
+     transform var(--motion-micro);
+ }
+ .ant-btn:not(:disabled):not(.ant-btn-loading):active {
+@@ -140,6 +174,7 @@
+ .ant-btn-primary:not(.ant-btn-dangerous) {
+   color: var(--brand-on-primary) !important;
+ }
++.ant-btn-dangerous:not(.ant-btn-primary):not(:disabled) { color: var(--expense-fg) !important; }
+ .ant-modal-content,
+ .ant-drawer-content {
+   border: var(--border-width) solid var(--border);
+@@ -183,7 +218,6 @@
+   z-index: 30;
+   overflow-y: auto;
+   overflow-x: hidden;
+-  transition: width var(--motion-standard) var(--ease-standard);
+ }
+ .brand {
+   display: flex;
+@@ -248,7 +282,7 @@
+   text-decoration: none;
+   white-space: nowrap;
+   position: relative;
+-  transition: background var(--motion-micro);
++  transition: opacity var(--motion-micro);
+ }
+ .sidebar nav > a.active {
+   color: var(--brand-primary);
+@@ -343,9 +377,6 @@
+   display: flex;
+   flex-direction: column;
+   min-height: 100vh;
+-  transition:
+-    margin-left var(--motion-standard),
+-    width var(--motion-standard);
+ }
+ .topbar {
+   height: var(--topbar-height);
+@@ -397,9 +428,6 @@
+   padding: var(--space-6) var(--space-6) var(--space-12);
+   flex: 1;
+   outline: none;
+-}
+-.main-content > :not(.ant-modal-root) {
+-  animation: page-enter var(--motion-standard) var(--ease-enter) both;
+ }
+ .page-heading {
+   display: flex;
+@@ -472,6 +500,7 @@
+   margin-bottom: var(--space-6);
+ }
+ .stat-card {
++  min-height: 160px;
+   padding: var(--space-5);
+   display: flex;
+   flex-direction: column;
+@@ -669,7 +698,7 @@
+ }
+ .table-scroll {
+   overflow: auto;
+-  max-height: 64vh;
++  height: 360px;
+   border-radius: 0 0 var(--radius-card) var(--radius-card);
+ }
+ .table-scroll table {
+@@ -701,7 +730,7 @@
+   border-bottom: 0;
+ }
+ .table-scroll tbody tr {
+-  transition: background var(--motion-micro);
++  transition: opacity var(--motion-micro);
+ }
+ .table-scroll tbody tr:hover {
+   background: var(--bg-subtle);
+@@ -768,8 +797,7 @@
+   background: var(--bg-subtle) !important;
+   border-color: var(--border) !important;
+   transition:
+-    background var(--motion-standard),
+-    color var(--motion-standard);
++    opacity var(--motion-standard);
+   margin-inline-end: 0;
+ }
+ .status-dot {
+@@ -858,9 +886,7 @@
+   color: var(--text-secondary);
+ }
+ .profile-heading {
+-  position: sticky;
+-  top: var(--topbar-height);
+-  z-index: 8;
++  position: relative;
+   margin-bottom: var(--space-6);
+   padding: var(--space-5);
+   background: var(--bg-surface);
+@@ -1018,6 +1044,8 @@
+   overflow: auto;
+ }
+ .receipt-media img {
++  aspect-ratio: 3 / 4;
++  object-fit: contain;
+   max-width: 100%;
+   max-height: 75vh;
+   object-fit: contain;
+@@ -1254,7 +1282,7 @@
+   animation: page-enter var(--motion-standard) var(--ease-enter);
+ }
+ .row-flash {
+-  animation: row-flash var(--motion-shimmer) var(--ease-standard);
++  animation: none;
+ }
+ .empty-state {
+   padding: var(--space-6);
+@@ -1273,7 +1301,7 @@
+   color: var(--text-secondary);
+ }
+ .row-action {
+-  opacity: 0;
++  opacity: 1;
+   transition: opacity var(--motion-micro);
+ }
+ tr:hover .row-action,
+@@ -1292,18 +1320,18 @@
+ }
+ @keyframes chart-draw {
+   from {
+-    stroke-dashoffset: 600;
++    opacity: 0;
+   }
+   to {
+-    stroke-dashoffset: 0;
++    opacity: 1;
+   }
+ }
+ @keyframes row-flash {
+   from {
+-    background: var(--brand-bg);
++    opacity: .7;
+   }
+   to {
+-    background: transparent;
++    opacity: 1;
+   }
+ }
+ @keyframes thinking {
+@@ -1600,14 +1628,14 @@
+   }
+ }
+ .row-approved {
+-  animation: row-approved var(--motion-shimmer) var(--ease-standard);
++  animation: none;
+ }
+ @keyframes row-approved {
+   from {
+-    background: var(--income-bg);
++    opacity: .7;
+   }
+   to {
+-    background: transparent;
++    opacity: 1;
+   }
+ }
+ @media (prefers-reduced-motion: reduce) {
+--- a/accountant-panel/src/components/States.tsx
++++ b/accountant-panel/src/components/States.tsx
+@@ -1,9 +1,34 @@
+ import { Alert, Button, Skeleton } from 'antd';
+-import type { ReactNode } from 'react';
++import { Component, Profiler, type ReactNode } from 'react';
++declare global { interface Window { __panelRenders?: { name: string; phase: string; duration: number }[] } }
+ 
+-export function QueryState({ pending, error, retry, children }: { pending: boolean; error: Error | null; retry: () => unknown; children: ReactNode }) {
+-  if (pending) return <div className="surface state-padding" aria-label="Loading content"><Skeleton active paragraph={{ rows: 6 }} /></div>;
+-  if (error) return <Alert type="error" showIcon title="Unable to load this view" description={error.message}
+-    action={<Button onClick={() => retry()}>Retry</Button>} />;
+-  return children;
++export type StateLayout = 'panel' | 'dashboard' | 'profile' | 'tax' | 'table';
++export function LoadingLayout({ layout }: { layout: StateLayout }) {
++  if (layout === 'dashboard' || layout === 'profile' || layout === 'tax') return <>
++    {layout === 'profile' && <div className="surface profile-heading loading-profile"><Skeleton active avatar paragraph={{ rows: 2 }} /></div>}
++    {layout === 'tax' && <div className="surface state-padding loading-tax-notice section-gap"><Skeleton active paragraph={{ rows: 1 }} /></div>}
++    <div className="stat-grid section-gap">{['one', 'two', 'three', 'four'].map(key => <div key={key} className="surface stat-card"><Skeleton active paragraph={{ rows: 2 }} /></div>)}</div>
++    {(layout === 'profile' || layout === 'tax') && <div className={`surface state-padding section-gap loading-workflow ${layout === 'tax' ? 'loading-filing' : ''}`}><Skeleton active paragraph={{ rows: layout === 'tax' ? 14 : 7 }} /></div>}
++    <div className={layout === 'dashboard' ? 'dashboard-middle' : 'profile-overview-grid'}><div className="surface state-padding loading-detail"><Skeleton active paragraph={{ rows: 5 }} /></div><div className="surface state-padding loading-detail"><Skeleton active paragraph={{ rows: 5 }} /></div></div>
++  </>;
++  return <div className="state-padding"><Skeleton active paragraph={{ rows: layout === 'table' ? 6 : 4 }} /></div>;
+ }
++export function QueryState({ pending, error, retry, empty = false, emptyMessage = 'No data is available in this view.', emptyAction, layout = 'panel', children }: {
++  pending: boolean; error: Error | null; retry: () => unknown; empty?: boolean; emptyMessage?: string; emptyAction?: ReactNode; layout?: StateLayout; children: ReactNode;
++}) {
++  const content = <div className={`query-state query-${layout}`} aria-busy={pending}>
++    {pending ? <div role="status" aria-label="Loading content"><LoadingLayout layout={layout} /></div> : error ?
++      <div className="state-padding"><Alert type="error" showIcon title="Unable to load this view" description={error.message} action={<Button onClick={() => retry()}>Retry</Button>} /></div> :
++      empty || children == null || typeof children === 'boolean' || children === '' ? <div className="empty-state"><p>{emptyMessage}</p>{emptyAction || <Button onClick={() => retry()}>Refresh records</Button>}</div> : children}
++  </div>;
++  return <PanelBoundary>{import.meta.env.DEV && import.meta.env.VITE_UI_DIAGNOSTICS === 'true' ? <Profiler id={`QueryState:${layout}`} onRender={(name, phase, duration) => { window.__panelRenders = [...(window.__panelRenders || []).slice(-199), { name, phase, duration }]; }}>{content}</Profiler> : content}</PanelBoundary>;
++}
++export class PanelBoundary extends Component<{ children: ReactNode; resetKey?: string }, { failed: boolean }> {
++  state = { failed: false };
++  static getDerivedStateFromError() { return { failed: true }; }
++  componentDidCatch(error: Error) { console.error(`Panel render failed: ${error.name}`); }
++  componentDidUpdate(previous: Readonly<{ children: ReactNode; resetKey?: string }>) {
++    if (previous.resetKey !== this.props.resetKey && this.state.failed) this.setState({ failed: false });
++  }
++  render() { return this.state.failed ? <div className="surface state-padding" role="alert"><h2>This panel could not be displayed</h2><p>Other panels remain available. Retry this panel or refresh its data.</p><Button onClick={() => this.setState({ failed: false })}>Retry panel</Button></div> : this.props.children; }
++}
+--- a/accountant-panel/src/components/DataTable.tsx
++++ b/accountant-panel/src/components/DataTable.tsx
+@@ -1,5 +1,5 @@
+ import { useMemo, useState, useEffect, useRef, type ReactNode } from "react";
+-import { useQuery, useQueryClient } from "@tanstack/react-query";
++import { hashKey, useQuery, useQueryClient } from "@tanstack/react-query";
+ import {
+   flexRender,
+   getCoreRowModel,
+@@ -16,7 +16,6 @@
+   Modal,
+   Pagination,
+   Select,
+-  Skeleton,
+   Space,
+   Tooltip,
+ } from "antd";
+@@ -26,12 +25,13 @@
+   RefreshCw,
+   Save,
+   Rows3,
+-  FileCheck2,
+ } from "lucide-react";
+ import { api, download, request } from "../api/client";
+ import { tablePath } from "../api/providers";
+ import type { Page, TableQuery } from "../api/types";
+ import { RoleGuard } from "./RoleGuard";
++import { PanelBoundary, QueryState } from './States';
++const emptyRows: never[] = [];
+ 
+ export interface TableProps<T> {
+   resource: string;
+@@ -45,7 +45,10 @@
+   onData?: (data: Page<T> & Record<string, unknown>) => void;
+ }
+ 
+-export function DataTable<T extends { id: string }>({
++export function DataTable<T extends { id: string }>(props: TableProps<T>) {
++  return <PanelBoundary resetKey={props.resource}><DataTableContent {...props} /></PanelBoundary>;
++}
++function DataTableContent<T extends { id: string }>({
+   resource,
+   columns,
+   query,
+@@ -74,7 +77,7 @@
+     rows: Map<string, { json: string; status: unknown }>;
+   } | null>(null);
+   const [highlights, setHighlights] = useState<Record<string, string>>({});
+-  const scope = JSON.stringify([resource, query]);
++  const scope = hashKey([resource, query]);
+   const identifierSearch =
+     ["drivers", "handoffs"].includes(resource) &&
+     /^\d+$/.test(query.search.trim());
+@@ -134,7 +137,10 @@
+   useEffect(() => {
+     setSelection({});
+     setSearch(query.search);
+-  }, [query, resource]);
++  }, [scope]);
++  useEffect(() => {
++    if (result.data && query.page > 1 && !result.data.items.length) onQuery({ ...query, page: 1 });
++  }, [result.data, scope, onQuery]);
+   useEffect(() => {
+     if (result.data) onData?.(result.data);
+   }, [result.data, onData]);
+@@ -169,7 +175,7 @@
+     [selectable, columns],
+   );
+   const table = useReactTable({
+-    data: result.data?.items || [],
++    data: result.data?.items || emptyRows,
+     columns: tableColumns,
+     getCoreRowModel: getCoreRowModel(),
+     getRowId: (row) => row.id,
+@@ -295,6 +301,7 @@
+           className="table-notice"
+           type="warning"
+           title="Saved views are unavailable"
++          description={views.error.message}
+           action={
+             <Button size="small" onClick={() => void views.refetch()}>
+               Retry
+@@ -311,26 +318,11 @@
+           </Button>
+         </div>
+       )}
+-      {result.isError ? (
+-        <div className="state-padding">
+-          <Alert
+-            type="error"
+-            showIcon
+-            title="Could not load records"
+-            description={result.error.message}
+-            action={
+-              <Button onClick={() => void result.refetch()}>Retry</Button>
+-            }
+-          />
+-        </div>
+-      ) : result.isPending ? (
+-        <div
+-          className="state-padding"
+-          aria-label={`Loading ${title.toLowerCase()}`}
+-        >
+-          <Skeleton active paragraph={{ rows: 5 }} />
+-        </div>
+-      ) : (
++      <QueryState pending={result.isPending} error={result.error} retry={result.refetch} layout="table"
++        empty={result.isSuccess && !result.data.items.length}
++        emptyMessage="No records match this view within your access scope. Clear filters to broaden the search; ask an admin about driver assignment if needed."
++        emptyAction={<Button onClick={() => query.search || Object.keys(query.filters).some(key => key !== 'tax_year') ? onQuery({ ...query, page: 1, search: '', filters: query.filters.tax_year ? { tax_year: query.filters.tax_year } : {} }) : void result.refetch()}>Clear filters / refresh</Button>}>
++      {result.data && (
+         <div
+           className="table-scroll"
+           tabIndex={0}
+@@ -405,37 +397,20 @@
+                 >
+                   {row.getVisibleCells().map((cell) => (
+                     <td key={cell.id} data-numeric={numeric(cell.column.id)}>
+-                      {flexRender(
++                      <div className="cell-content">{flexRender(
+                         cell.column.columnDef.cell,
+                         cell.getContext(),
+-                      )}
++                      ) ?? '—'}</div>
+                     </td>
+                   ))}
+                 </tr>
+               ))}
+             </tbody>
+           </table>
+-          {!result.data.items.length && (
+-            <div className="empty-state">
+-              <FileCheck2 aria-hidden="true" />
+-              <p>No records match this view.</p>
+-              <Button
+-                type="primary"
+-                onClick={() => {
+-                  if (query.search || Object.keys(query.filters).length)
+-                    onQuery({ ...query, page: 1, search: "", filters: {} });
+-                  else void result.refetch();
+-                }}
+-              >
+-                {query.search || Object.keys(query.filters).length
+-                  ? "Clear filters"
+-                  : "Refresh records"}
+-              </Button>
+-            </div>
+-          )}
++
+         </div>
+       )}
+-      <div className="table-footer">
++      </QueryState><div className="table-footer">
+         <span aria-live="polite">
+           {result.data?.total?.toLocaleString() ?? "—"} records · filtered
+           results
+@@ -510,3 +485,5 @@
+     </section>
+   );
+ }
++
++DataTableContent.whyDidYouRender = true;
+--- a/accountant-panel/src/main.tsx
++++ b/accountant-panel/src/main.tsx
+@@ -1,9 +1,11 @@
+-import { lazy, Suspense } from "react";
++import { lazy, Suspense, type ReactNode } from "react";
+ import { createRoot } from "react-dom/client";
+ import { Refine } from "@refinedev/core";
+ import { QueryClient } from "@tanstack/react-query";
+ import { App as AntApp, Result, Button, Skeleton } from "antd";
+-import { BrowserRouter, Route, Routes, Link } from "react-router-dom";
++import { BrowserRouter, Route, Routes, Link, useLocation } from "react-router-dom";
++import { PanelBoundary } from './components/States';
++import interFont from '@fontsource/inter/files/inter-latin-400-normal.woff2?url';
+ import { dataProvider, authProvider } from "./api/providers";
+ import { can, type Action } from "./auth/permissions";
+ import { session } from "./auth/session";
+@@ -46,6 +48,10 @@
+   }
+ });
+ 
++function RoutePanel({ children }: { children: ReactNode }) {
++  const location = useLocation();
++  return <PanelBoundary resetKey={location.pathname}>{children}</PanelBoundary>;
++}
+ function Panel() {
+   return (
+     <ThemeProvider>
+@@ -79,7 +85,7 @@
+               reactQuery: { clientConfig: queryClient },
+             }}
+           >
+-            <Routes>
++            <RoutePanel><Routes>
+               <Route path="/login" element={<Login />} />
+               <Route
+                 path="/styleguide"
+@@ -105,10 +111,10 @@
+                   </ProtectedWorkspace>
+                 }
+               >
+-                <Route index element={<DashboardPage />} />
+-                <Route path="handoffs" element={<HandoffsPage />} />
+-                <Route path="drivers" element={<DriversPage />} />
+-                <Route path="drivers/:id" element={<DriverProfilePage />} />
++                <Route index element={<RoutePanel><DashboardPage /></RoutePanel>} />
++                <Route path="handoffs" element={<RoutePanel><HandoffsPage /></RoutePanel>} />
++                <Route path="drivers" element={<RoutePanel><DriversPage /></RoutePanel>} />
++                <Route path="drivers/:id" element={<RoutePanel><DriverProfilePage /></RoutePanel>} />
+               </Route>
+               <Route
+                 path="*"
+@@ -124,7 +130,7 @@
+                   />
+                 }
+               />
+-            </Routes>
++            </Routes></RoutePanel>
+           </Refine>
+         </BrowserRouter>
+       </AntApp>
+@@ -132,4 +138,13 @@
+   );
+ }
+ 
+-createRoot(document.getElementById("root")!).render(<Panel />);
++const preload = document.createElement('link');
++preload.rel = 'preload'; preload.as = 'font'; preload.type = 'font/woff2'; preload.crossOrigin = 'anonymous'; preload.href = interFont;
++if (!document.querySelector(`link[href="${interFont}"]`)) document.head.append(preload);
++async function mount() {
++  if (import.meta.env.DEV && import.meta.env.VITE_UI_DIAGNOSTICS === 'true') await import('./ui-diagnostics');
++  const root = import.meta.hot?.data.root || createRoot(document.getElementById('root')!);
++  if (import.meta.hot) import.meta.hot.data.root = root;
++  root.render(<PanelBoundary><Panel /></PanelBoundary>);
++}
++void mount();
+--- a/accountant-panel/src/theme/ThemeProvider.tsx
++++ b/accountant-panel/src/theme/ThemeProvider.tsx
+@@ -3,6 +3,8 @@
+   useContext,
+   useLayoutEffect,
+   useState,
++  useCallback,
++  useMemo,
+   type ReactNode,
+ } from "react";
+ import { ConfigProvider } from "antd";
+@@ -45,16 +47,17 @@
+     document.documentElement.dataset.theme = dark ? "dark" : "light";
+     setConfig(getAntdTheme(dark, reducedMotion));
+   }, [dark, reducedMotion]);
+-  const setMode = (next: ThemeMode) => {
++  const setMode = useCallback((next: ThemeMode) => {
+     setPreference({ key, mode: next });
+     try {
+       localStorage.setItem(key, next);
+     } catch {
+       /* The in-memory choice still works. */
+     }
+-  };
++  }, [key]);
++  const contextValue = useMemo(() => ({ mode, dark, setMode }), [mode, dark, setMode]);
+   return (
+-    <ThemeContext.Provider value={{ mode, dark, setMode }}>
++    <ThemeContext.Provider value={contextValue}>
+       <ConfigProvider locale={enGB} theme={config}>
+         {children}
+       </ConfigProvider>
+--- a/accountant-panel/src/theme/tokens.css
++++ b/accountant-panel/src/theme/tokens.css
+@@ -82,7 +82,7 @@
+ }
+ 
+ :root {
+-  --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
++  --font-ui: "Inter", "Inter fallback", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+   --font-numeric: "JetBrains Mono", "Inter", monospace;
+   --font-caption: 12px;
+   --font-table: 13px;
+--- a/accountant-panel/src/ui-diagnostics.ts
++++ b/accountant-panel/src/ui-diagnostics.ts
+@@ -0,0 +1,4 @@
++import React from 'react';
++import whyDidYouRender from '@welldone-software/why-did-you-render';
++// Explicit opt-in only. Never log financial values, tokens, or component props.
++whyDidYouRender(React, { trackAllPureComponents: true, notifier: info => console.debug(`[render diagnostic] ${info.displayName}`) });
+--- a/accountant-panel/vite.config.ts
++++ b/accountant-panel/vite.config.ts
+@@ -4,7 +4,7 @@
+ export default defineConfig(({ mode }) => {
+   const env = loadEnv(mode, process.cwd(), '');
+   return {
+-    plugins: [react()],
++    plugins: [react({ jsxImportSource: mode === 'development' && env.VITE_UI_DIAGNOSTICS === 'true' ? '@welldone-software/why-did-you-render' : 'react' })],
+     server: {
+       port: 5173,
+       strictPort: true,

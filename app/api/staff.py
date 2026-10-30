@@ -6,7 +6,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile
-from sqlalchemy import func, literal, select, union_all
+from sqlalchemy import String, func, literal, select, union_all
 
 from app.api import documents, reports, support
 from app.api.deps import CurrentUser, SessionDep, SettingsDep
@@ -94,7 +94,28 @@ def handoff_wire(db, row):
     return {**wire(row), "driver_name": summary["name"], "driver_email": summary["email"],
         "accountant_id": summary["accountant_id"], "accountant_name": summary["accountant_name"],
         "tax_year": row.tax_year, "request_type": request.data["kind"],
-        "created_at": request.created_at, "age_days": (utc_now() - request.created_at).days}
+        "created_at": request.created_at, "age_days": (utc_now() - request.created_at).days,
+        "workflow_events": audit_projection(db, row.driver_id, row.id)}
+
+
+def audit_projection(db, driver_id, resource_id):
+    records = db.execute(select(StaffAudit, StaffAccount.name).join(StaffAccount,
+        StaffAccount.id == StaffAudit.actor_id).where(StaffAudit.driver_id == driver_id,
+        StaffAudit.resource_id == resource_id).order_by(StaffAudit.created_at.desc(), StaffAudit.id).limit(50))
+    return [{"id": event.id, "actor_name": name, "action": event.action,
+        "created_at": event.created_at, "before": event.before, "after": event.after} for event, name in records]
+
+
+def review_projection(db, driver_id, resource_id):
+    # A later correction/reversal must not inherit a previous reviewer's name.
+    records = db.execute(select(StaffAudit, StaffAccount.name).join(StaffAccount,
+        StaffAccount.id == StaffAudit.actor_id).where(StaffAudit.driver_id == driver_id,
+        (StaffAudit.resource_id == resource_id) | (StaffAudit.before["id"].astext == str(resource_id)),
+        StaffAudit.action.in_(["receipt_approve", "receipt_reject", "receipt_confirmation_reversed", "receipt_fields_corrected", "expense_corrected"]))
+        .order_by(StaffAudit.created_at.desc(), StaffAudit.id).limit(1)).first()
+    if not records or records[0].action not in {"receipt_approve", "receipt_reject"}:
+        return {"reviewed_by": None, "reviewed_at": None}
+    return {"reviewed_by": records[1], "reviewed_at": records[0].created_at}
 
 
 def filtered_drivers(db, staff, data, settings):
@@ -265,7 +286,10 @@ def overview(driver_id: UUID, data: YearInput, auth: StaffAuth, db: SessionDep):
         "utr_masked": tax.data.get("utr_masked") if tax else None,
         "ni_masked": tax.data.get("ni_masked") if tax else None,
         "driver_profile": driver.data if driver else {}, "subscription": support.subscription(user, db),
-        "totals": reports.dashboard_response(db, driver_id, data.tax_year)}
+        "totals": reports.dashboard_response(db, driver_id, data.tax_year),
+        "handoffs": [handoff_wire(db, item) for item in db.scalars(select(AccountantHandoff).where(
+            AccountantHandoff.driver_id == driver_id,
+            (AccountantHandoff.tax_year == data.tax_year) | AccountantHandoff.tax_year.is_(None)).order_by(AccountantHandoff.id))]}
     audit_read(db, auth[0], "financial_overview_view", driver_id)
     return result
 
@@ -275,7 +299,7 @@ def driver_table(db, staff, driver_id, resource, data):
     allowed = {"income": {"tax_year", "review_status", "claim_status", "source_id"},
         "expenses": {"tax_year", "review_status", "claim_status", "category_id"},
         "receipts": {"tax_year", "review_status", "claim_status"}, "mileage": {"tax_year", "vehicle_id"},
-        "documents": {"scan_status", "mime_type"}, "messages": set(), "notes": {"kind"}, "activity": {"action"}}
+        "documents": {"scan_status", "mime_type"}, "messages": set(), "notes": {"kind"}, "activity": {"action", "resource_id"}}
     if resource not in allowed:
         raise HTTPException(404, "Unsupported driver resource")
     query_filters(data, allowed[resource])
@@ -299,7 +323,8 @@ def driver_table(db, staff, driver_id, resource, data):
             return {**wire(row), "category_name": category.get("code", "Uncategorised").replace("_", " ").title(),
                 "source_name": SOURCES.get(row.source_id, {}).get("name"),
             "ai_category": extraction.get("suggested_category_id"), "ai_confidence": extraction.get("confidence"),
-                "ai_reason": extraction.get("warnings", []), "receipt_version": receipt.version if receipt else None}
+                "ai_reason": extraction.get("warnings", []), "receipt_version": receipt.version if receipt else None,
+                **review_projection(db, driver_id, row.receipt_id or row.id)}
         return paginate(db, query, Transaction, data, {"created_at": Transaction.created_at,
             "occurred_on": Transaction.occurred_on, "amount_pence": Transaction.amount_pence,
             "review_status": Transaction.review_status}, serialize)
@@ -350,13 +375,17 @@ def driver_table(db, staff, driver_id, resource, data):
             lambda row: {**wire(row), "author": db.get(StaffAccount, row.staff_id).name if row.staff_id else "Driver"})
     if resource == "activity":
         staff_events = select(StaffAudit.id, StaffAudit.created_at, StaffAudit.action, StaffAudit.before,
+            func.coalesce(StaffAudit.resource_id.cast(String), StaffAudit.before["id"].astext).label("resource_id"),
             StaffAudit.after, StaffAccount.name.label("actor_name")).join(StaffAccount, StaffAccount.id == StaffAudit.actor_id).where(StaffAudit.driver_id == driver_id)
-        book_events = select(Mutation.id, Mutation.created_at, Mutation.action, Mutation.before, Mutation.after,
+        book_events = select(Mutation.id, Mutation.created_at, Mutation.action, Mutation.before,
+            Mutation.resource_id.cast(String).label("resource_id"), Mutation.after,
             literal("Driver/service — legacy actor not recorded").label("actor_name")).where(Mutation.owner_id == driver_id)
         events = union_all(staff_events, book_events).subquery()
         query = select(events)
         if data.filters.get("action"):
             query = query.where(events.c.action == data.filters["action"])
+        if data.filters.get("resource_id"):
+            query = query.where(events.c.resource_id == data.filters["resource_id"])
         if data.search:
             query = query.where(events.c.action.ilike("%" + data.search.replace("%", "\\%") + "%"))
         if data.sort != "created_at":
@@ -388,7 +417,15 @@ def tax(driver_id: UUID, data: YearInput, auth: StaffAuth, db: SessionDep):
         if error.status_code not in {404, 409, 422}:
             raise
         calculation = {"available": False, "reason": error.detail}
-    result = {"estimate": calculation, "payments": payment_timeline(db, driver_id, data.tax_year), "rules": rules}
+    safe_inputs = ("region", "has_paye_job", "property_income_pence", "interest_pence", "class4_exempt",
+        "student_loan_plan", "marriage_allowance_status", "marriage_allowance_eligible")
+    calculation_context = {key: context.data[key] for key in safe_inputs if context and key in context.data}
+    if context:
+        calculation_context["employments"] = [{key: item[key] for key in
+            ("gross_annual_pay_pence", "tax_paid_pence", "student_loan_paid_pence") if key in item}
+            for item in context.data.get("employments", [])]
+    result = {"estimate": calculation, "payments": payment_timeline(db, driver_id, data.tax_year),
+        "rules": rules, "calculation_context": calculation_context}
     audit_read(db, auth[0], "tax_view", driver_id)
     return result
 
@@ -433,6 +470,7 @@ def receipt(driver_id: UUID, receipt_id: UUID, auth: StaffAuth, db: SessionDep):
     result = receipt_wire(db, row)
     file = owned(db, PrivateFile, driver_id, row.file_id)
     result.update({"file_id": file.id, "scan_status": file.scan_status, "mime_type": file.mime_type})
+    result.update(review_projection(db, driver_id, row.id))
     audit_read(db, auth[0], "receipt_view", driver_id, {"receipt_id": str(receipt_id)})
     return result
 

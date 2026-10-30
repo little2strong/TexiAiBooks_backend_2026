@@ -1,0 +1,30 @@
+
+> taxiaibooks-accountant-panel@0.1.0 test:e2e
+> playwright test
+
+
+Running 14 tests using 1 worker
+
+  -   1 e2e\diagnostics.spec.ts:4:1 â€º React profiler settles without an idle update loop
+  -   2 e2e\evidence.spec.ts:6:1 â€º capture comparable Lighthouse and Chrome layout evidence
+  ok  3 e2e\stability.spec.ts:18:1 â€º login, queue, driver and tax stay stable with slow API responses and normal motion (11.5s)
+  ok  4 e2e\theme.spec.ts:23:1 â€º light default, persisted appearance, and live system preference (2.2s)
+  ok  5 e2e\theme.spec.ts:45:1 â€º styleguide renders accessible light and dark components, modal and drawer (8.8s)
+  ok  6 e2e\theme.spec.ts:79:1 â€º reduced motion and compact table density (2.1s)
+  ok  7 e2e\theme.spec.ts:98:1 â€º mobile and tablet layouts stay within the viewport (2.2s)
+  ok  8 e2e\theme.spec.ts:174:1 â€º workspace shell, keyboard search and user-scoped theme (6.1s)
+  ok  9 e2e\theme.spec.ts:203:1 â€º receipt review uses confidence tokens, zoom and exact audited Undo (7.3s)
+  ok 10 e2e\workspace.spec.ts:14:1 â€º staff login, scoped dashboard, queue, directory and every profile tab (8.8s)
+  ok 11 e2e\workspace.spec.ts:62:1 â€º receipt corrections save drafts, approval posts and exact reversal restores review (6.9s)
+  ok 12 e2e\workspace.spec.ts:85:1 â€º support remains read-only but can create an internal ticket (2.3s)
+  ok 13 e2e\workspace.spec.ts:101:1 â€º saved views, CSV, tablet, dark mode and WCAG checks (4.7s)
+  ok 14 e2e\workspace.spec.ts:121:1 â€º external filing requires explicit confirmation and preserves the recorded timeline (3.3s)
+
+  2 skipped
+  12 passed (1.2m)
+[WebServer] (node:13132) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:18764) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+(node:8520) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)

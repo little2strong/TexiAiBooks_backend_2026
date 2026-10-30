@@ -31,6 +31,7 @@ export interface Driver {
 export type HandoffStatus =
   "new" | "in_review" | "waiting_on_driver" | "ready_to_file" | "filed";
 export interface Handoff {
+  workflowEvents: AuditEvent[];
   id: string;
   driver_id: string;
   driver_name: string;
@@ -64,6 +65,9 @@ export interface Dashboard {
   as_of: string;
 }
 export interface Totals {
+  mileage_deduction_pence?: number;
+  as_of?: string;
+  has_data?: boolean;
   income_pence: number;
   deductible_expenses_pence: number;
   profit_pence: number;
@@ -73,6 +77,7 @@ export interface Totals {
   unresolved_issues: number;
 }
 export interface Overview extends Driver {
+  handoffs: Handoff[];
   tax_year: string;
   utr_masked: string | null;
   ni_masked: string | null;
@@ -85,6 +90,8 @@ export interface Overview extends Driver {
   totals: Totals;
 }
 export interface Transaction {
+  reviewerName?: string | null;
+  reviewedAt?: string | null;
   id: string;
   version: number;
   occurred_on: string;
@@ -139,6 +146,8 @@ export interface AuditEvent {
   after: Record<string, unknown> | null;
 }
 export interface Receipt {
+  reviewerName?: string | null;
+  reviewedAt?: string | null;
   id: string;
   version: number;
   created_at: string;
@@ -169,7 +178,16 @@ export interface TaxRule {
   verified_at: string;
 }
 export interface TaxResult {
+  calculationContext?: Record<string, unknown>;
   estimate: {
+    income_pence?: number;
+    expense_deduction_pence?: number;
+    paye_tax_paid_pence?: number;
+    student_loan_pence?: number;
+    savings_tax_pence?: number;
+    allowance_used_elsewhere_pence?: number;
+    combined_income_pence?: number;
+    as_of?: string;
     available?: boolean;
     reason?: string;
     total_pence?: number;
@@ -187,6 +205,11 @@ export interface TaxResult {
     }[];
   };
   payments: {
+    prior_year_liability_pence?: number | null;
+    advance_payments_pence?: number | null;
+    adjustments_pence?: number | null;
+    estimated_year_liability_pence?: number | null;
+    tax_paid_outside_sa_pence?: number | null;
     items: {
       id: string;
       due_on: string;
@@ -195,7 +218,7 @@ export interface TaxResult {
     }[];
     warnings?: string[];
   };
-  rules: { id: string; tax_year: string; version: string; rules: TaxRule[] };
+  rules: { id: string; tax_year: string; version: string | number; rules: TaxRule[] };
 }
 export interface SavedView {
   id: string;

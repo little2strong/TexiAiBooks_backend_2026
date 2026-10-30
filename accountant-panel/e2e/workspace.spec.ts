@@ -29,6 +29,7 @@ test('staff login, scoped dashboard, queue, directory and every profile tab', as
   await accountant.press('Enter');
   await page.getByLabel('Reason for assignment').fill('Confirm synthetic workload assignment');
   await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirm reassignment', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByRole('link', { name: /Browser Driver/ }).click();
   await expect(page.getByRole('heading', { name: 'Browser Driver' })).toBeVisible();
@@ -40,9 +41,14 @@ test('staff login, scoped dashboard, queue, directory and every profile tab', as
   await page.getByRole('button', { name: 'Hide UTR' }).click();
   for (const name of ['Income', 'Expenses', 'Mileage', 'Tax', 'Documents', 'Messages', 'Internal notes', 'Activity log']) {
     await page.getByRole('tab', { name, exact: true }).click();
-    await expect(page.getByRole('alert').filter({ hasText: /Could not load|Unable to load/ })).toHaveCount(0);
     if (name === 'Tax') await expect(page.getByText('Estimate for review')).toBeVisible();
-    else await expect(page.getByRole('region', { name: new RegExp(name === 'Internal notes' ? 'Notes,' : name === 'Mileage' ? 'Mileage logs,' : name === 'Activity log' ? 'Activity log,' : `${name},`) }).first()).toBeVisible();
+    else {
+      const title = name === 'Internal notes' ? 'Notes' : name === 'Mileage' ? 'Mileage logs' : name;
+      const panel = page.getByRole('region', { name: title, exact: true });
+      await expect(panel).toBeVisible();
+      await expect(panel.locator('.query-state')).toHaveAttribute('aria-busy', 'false');
+    }
+    await expect(page.getByRole('alert').filter({ hasText: /Could not load|Unable to load/ })).toHaveCount(0);
   }
   await page.getByRole('tab', { name: 'Messages', exact: true }).click();
   await page.getByLabel('Your message').fill('Please confirm this synthetic evidence.');
@@ -69,6 +75,8 @@ test('receipt corrections save drafts, approval posts and exact reversal restore
   await page.getByLabel('Review / correction reason').fill('Synthetic receipt approved');
   await page.getByRole('button', { name: 'Approve', exact: true }).click();
   await expect(page.getByText('This receipt is already posted')).toBeVisible();
+  // Dismiss feedback before using correction controls beneath the toast.
+  await page.getByRole('alert').filter({ hasText: 'Receipt approved' }).getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByLabel('Review / correction reason').fill('Synthetic category correction');
   await page.getByRole('button', { name: 'Reverse confirmation to correct' }).click();
   await expect(page.getByText('Confirmation reversed. Review the corrected category and confirm again.')).toBeVisible();
@@ -108,4 +116,36 @@ test('saved views, CSV, tablet, dark mode and WCAG checks', async ({ page }) => 
   await page.getByRole('menuitem', { name: 'Dark', exact: true }).click();
   const dark = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
   expect(dark.violations.map(item => ({ id: item.id, nodes: item.nodes.map(node => ({ target: node.target, detail: node.failureSummary })) }))).toEqual([]);
+});
+
+test('external filing requires explicit confirmation and preserves the recorded timeline', async ({ page }) => {
+  await login(page, 'admin-flow');
+  await page.getByRole('link', { name: 'Handoff queue', exact: true }).click();
+  await page.getByRole('button', { name: 'Start review', exact: true }).click();
+  await page.getByLabel('Reason', { exact: true }).fill('Synthetic review started');
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Update', exact: true }).click();
+  const status = page.getByLabel('Status', { exact: true });
+  await status.click();
+  await status.press('ArrowDown');
+  await status.press('ArrowDown');
+  await status.press('Enter');
+  await page.getByLabel('Reason', { exact: true }).fill('Synthetic supplied evidence reviewed');
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Record filing', exact: true }).click();
+  await page.getByLabel('Reason', { exact: true }).fill('Synthetic completed external filing');
+  await page.getByLabel('Actual filing reference').fill('SYNTHETIC-EXTERNAL-REF');
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Record completed external filing?', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
+  await expect(page.getByRole('dialog')).toHaveCount(1);
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirm external filing', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('tbody .status-badge')).toHaveText('Filed');
+  await page.getByRole('button', { name: 'History', exact: true }).click();
+  await page.getByText(/^Record audit trail/).click();
+  await expect(page.getByText('Synthetic completed external filing', { exact: false })).toBeVisible();
 });

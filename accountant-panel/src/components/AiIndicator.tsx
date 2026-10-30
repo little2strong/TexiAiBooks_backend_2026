@@ -1,6 +1,6 @@
 import { Check, Sparkles } from "lucide-react";
 
-export function AiIndicator({ reviewed = false }: { reviewed?: boolean }) {
+export function AiIndicator({ reviewed = false, reviewerName }: { reviewed?: boolean; reviewerName?: string | null }) {
   return (
     <span className={reviewed ? "reviewed-chip" : "ai-chip"}>
       {reviewed ? (
@@ -8,12 +8,13 @@ export function AiIndicator({ reviewed = false }: { reviewed?: boolean }) {
       ) : (
         <Sparkles aria-hidden="true" />
       )}
-      {reviewed ? "Reviewed" : "AI suggested"}
+      {reviewed ? reviewerName ? `Reviewed by ${reviewerName}` : 'Reviewed · reviewer not recorded' : "AI suggested"}
     </span>
   );
 }
 
 export function ConfidenceBar({ confidence }: { confidence: unknown }) {
+  if (confidence && typeof confidence === 'object' && Object.keys(confidence).length) return <div>{Object.entries(confidence).map(([field, value]) => <div key={field}><small>{field.replaceAll('_', ' ')}</small><ConfidenceBar confidence={value} /></div>)}</div>;
   if (
     confidence == null ||
     typeof confidence === "object" ||

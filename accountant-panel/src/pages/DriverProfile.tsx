@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, App, Avatar, Button, Descriptions, Empty, Form, Input, Modal, Select, Space, Tabs, Tag, Tooltip, Upload } from 'antd';
 import { ArrowLeft, Download, EyeOff, Eye, FileImage, Send, Upload as UploadIcon } from 'lucide-react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useLocation } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { api, download } from '../api/client';
 import { useSession, useWorkspace } from '../auth/context';
@@ -12,7 +12,11 @@ import { AuditTimeline } from '../components/AuditTimeline';
 import { DataTable } from '../components/DataTable';
 import { ReceiptViewer } from '../components/ReceiptViewer';
 import { RoleGuard } from '../components/RoleGuard';
-import { QueryState } from '../components/States';
+import { QueryState, PanelBoundary } from '../components/States';
+import { ExplainNumber } from '../components/ExplainNumber';
+import { TaxExplanation } from '../components/TaxExplanation';
+import { WorkflowPanel } from '../components/Workflow';
+import { RecordAudit } from '../components/RecordAudit';
 import { StatusBadge } from '../components/StatusBadge';
 import { date, datetime, initials, label, money } from '../lib/format';
 import { AiIndicator, ConfidenceBar } from '../components/AiIndicator';
@@ -79,12 +83,12 @@ function LedgerTab({ driverId, kind }: { driverId: string; kind: 'income' | 'exp
     { accessorKey: 'occurred_on', header: 'Date', cell: ({ row }) => date(row.original.occurred_on) },
     { accessorKey: 'description', header: kind === 'income' ? 'Earnings' : 'Expense', enableSorting: false, cell: ({ row }) => <div className="record-description"><strong>{row.original.description || 'Description not supplied'}</strong><small>{kind === 'income' ? row.original.source_name || 'Source not supplied' : row.original.category_name}</small></div> },
     { accessorKey: 'amount_pence', header: 'Amount', cell: ({ row }) => <span className="money-cell" data-negative={row.original.amount_pence < 0}>{money(row.original.amount_pence)}</span> },
-    ...(kind === 'expenses' ? [{ id: 'deductible', header: 'Deductible', enableSorting: false, cell: ({ row }: { row: { original: Transaction } }) => <span className="money-cell">{money(row.original.deductible_pence)}<small className="cell-small">{row.original.business_use_percent}% business</small></span> } as ColumnDef<Transaction>] : []),
+    ...(kind === 'expenses' ? [{ id: 'deductible', header: 'Deductible', enableSorting: false, cell: ({ row }: { row: { original: Transaction } }) => <span className="money-cell">{money(row.original.deductible_pence)}<ExplainNumber name="Deductible expenses" year={year}><p>Full amount {money(row.original.amount_pence)}; reviewed business share {row.original.business_use_percent}%; server deduction {money(row.original.deductible_pence)}.</p><p>Eligibility reasons: {row.original.eligibility_reason_codes.join('; ') || 'None supplied'}. Source: ledger API; includes no separate mileage claim in this row.</p></ExplainNumber><small className="cell-small">{row.original.business_use_percent}% business</small></span> } as ColumnDef<Transaction>] : []),
     { accessorKey: 'review_status', header: 'Review', cell: ({ row }) => <StatusBadge status={row.original.review_status} /> },
-    ...(kind === 'expenses' ? [{ id: 'ai', header: 'AI suggestion', enableSorting: false, cell: ({ row }: { row: { original: Transaction } }) => row.original.review_status === 'confirmed' ? <AiIndicator reviewed /> : row.original.ai_category ? <Tooltip title={row.original.ai_reason?.join('; ') || 'No explanation supplied by OCR'}><div><AiIndicator /><small className="cell-small">{label(config.categories.find(c => c.id === row.original.ai_category)?.code || 'Category supplied')}</small><ConfidenceBar confidence={row.original.ai_confidence} /></div></Tooltip> : <span className="muted">No suggestion</span> } as ColumnDef<Transaction>] : []),
+    ...(kind === 'expenses' ? [{ id: 'ai', header: 'AI suggestion', enableSorting: false, cell: ({ row }: { row: { original: Transaction } }) => row.original.review_status === 'confirmed' ? <AiIndicator reviewed reviewerName={row.original.reviewerName} /> : row.original.ai_category ? <Tooltip title={row.original.ai_reason?.join('; ') || 'No explanation supplied by OCR'}><div><AiIndicator /><small className="cell-small">{label(config.categories.find(c => c.id === row.original.ai_category)?.code || 'Category supplied')}</small><ConfidenceBar confidence={row.original.ai_confidence} /></div></Tooltip> : <span className="muted">No suggestion</span> } as ColumnDef<Transaction>] : []),
     { id: 'evidence', header: 'Evidence / review', enableSorting: false, cell: ({ row }) => <Space>{row.original.receipt_id ? <Button size="small" icon={<FileImage />} onClick={() => setReceipt(row.original.receipt_id)}>Receipt</Button> : <span className="muted">No receipt</span>}
-      {kind === 'expenses' && !row.original.receipt_id && !row.original.import_origin_key && row.original.review_status !== 'reversed' && <RoleGuard action="edit"><Button size="small" onClick={() => { setEditing(row.original); form.setFieldsValue({ category_id: row.original.category_id }); }}>Recategorise</Button></RoleGuard>}</Space> },
-  ], [kind, config.categories, form]);
+      <RecordAudit driverId={driverId} recordId={row.original.receipt_id || row.original.id} />{kind === 'expenses' && !row.original.receipt_id && !row.original.import_origin_key && row.original.review_status !== 'reversed' && <RoleGuard action="edit"><Button size="small" onClick={() => { setEditing(row.original); form.setFieldsValue({ category_id: row.original.category_id }); }}>Recategorise</Button></RoleGuard>}</Space> },
+  ], [kind, config.categories, form, driverId, year]);
   const recategorise = async (values: { category_id: string }) => {
     if (!editing) return;
     setBusy(true);
@@ -136,19 +140,22 @@ function ExpenseTabs({ driverId }: { driverId: string }) {
     { key: 'receipts', label: 'Receipt review queue', children: <ReceiptQueue driverId={driverId} /> }]} />;
 }
 
-function TaxTab({ driverId, mileageOnly = false }: { driverId: string; mileageOnly?: boolean }) {
+export function TaxTab({ driverId, mileageOnly = false }: { driverId: string; mileageOnly?: boolean }) {
   const { year } = useWorkspace();
   const result = useQuery({ queryKey: ['tax', driverId, year], queryFn: ({ signal }) => api.tax(driverId, year, signal) });
-  return <QueryState pending={result.isPending} error={result.error} retry={result.refetch}>{result.data && <>
+  const overview = useQuery({ queryKey: ['overview', driverId, year], queryFn: ({ signal }) => api.overview(driverId, year, signal), enabled: !mileageOnly });
+  return <QueryState layout={mileageOnly ? 'panel' : 'tax'} pending={result.isPending} error={result.error} retry={result.refetch} empty={mileageOnly && result.isSuccess && !result.data.rules.rules.some(rule => rule.code === 'mileage')} emptyMessage="No mileage rates were supplied for this tax year. Refresh or ask an administrator.">{result.data && <>
     {mileageOnly ? <section className="surface profile-card section-gap"><h2>Verified mileage rules · {year}</h2>{result.data.rules.rules.filter(rule => rule.code === 'mileage').map(rule => <div key={rule.code}>
       <Descriptions column={{ xs: 1, md: 3 }} items={Object.entries(rule.value).map(([key, value]) => ({ key, label: label(key), children: String(value) }))} />
       <a href={rule.official_url} target="_blank" rel="noreferrer">HMRC source ↗</a><small className="muted"> · Verified {date(rule.verified_at)} · Per-vehicle eligibility is enforced by the backend.</small></div>)}</section> : <>
       <Alert type="info" showIcon title="Estimate for review — not an assessed bill or completed tax return" description="Figures follow the selected tax-year rules. Review missing inputs and unsupported tax circumstances before relying on this estimate." className="section-gap" />
       {result.data.estimate.available === false ? <Alert type="warning" title="Tax estimate unavailable" description={result.data.estimate.reason} className="section-gap" /> :
-        <div className="stat-grid section-gap">{[['Estimated liability', result.data.estimate.total_pence], ['Income tax', result.data.estimate.income_tax_pence], ['Class 4 NI', result.data.estimate.class4_pence], ['Personal allowance', result.data.estimate.personal_allowance_pence]].map(([name, value]) => <div className="surface stat-card" key={String(name)}><span>{name}</span><strong>{money(value as number | undefined)}</strong></div>)}</div>}
-      <div className="profile-overview-grid"><section className="surface profile-card"><h2>Payment timeline</h2>{result.data.payments.items.length ? result.data.payments.items.map(item => <div className="payment-row" key={item.id}><span>{date(item.due_on)}<small>{label(item.label_key.replace(/^deadline\./, ''))}</small></span><strong>{item.amount_pence == null ? 'Amount not assessed' : money(item.amount_pence)}</strong></div>) : <Empty description="No payment dates supplied" />}
+        <div className="stat-grid section-gap">{[['Estimated liability', result.data.estimate.total_pence], ['Income tax', result.data.estimate.income_tax_pence], ['Class 4 NI', result.data.estimate.class4_pence], ['Personal allowance', result.data.estimate.personal_allowance_pence]].map(([name, value]) => <div className="surface stat-card" key={String(name)}><span className="number-label">{name}<TaxExplanation name={String(name)} year={year} result={result.data!} /></span><strong>{money(value as number | undefined)}</strong></div>)}</div>}
+
+      <QueryState pending={overview.isPending} error={overview.error} retry={overview.refetch}>{overview.data && <WorkflowPanel data={overview.data} tax />}</QueryState>
+      <div className="profile-overview-grid"><section className="surface profile-card"><h2>Payment timeline</h2>{result.data.payments.items.length ? result.data.payments.items.map(item => <div className="payment-row" key={item.id}><span>{date(item.due_on)}<small>{label(item.label_key.replace(/^deadline\./, ''))}</small></span><strong>{item.amount_pence == null ? 'Amount not assessed' : money(item.amount_pence)}<ExplainNumber name="Payment amount" year={year} sources={result.data!.rules.rules.filter(rule => rule.code === 'poa').map(rule => <p key={rule.code}><a href={rule.official_url} target="_blank" rel="noreferrer">Payment rules source</a> ? {JSON.stringify(rule.value)}</p>)}><dl className="breakdown">{Object.entries(result.data!.payments).filter(([key]) => key.endsWith('_pence')).map(([key, value]) => <div key={key}><dt>{label(key.replace('_pence', ''))}</dt><dd>{money(value as number | null)}</dd></div>)}</dl><p>Source: payment timeline API, supplied prior assessment and current-pace projection; due {date(item.due_on)}.</p></ExplainNumber></strong></div>) : <Empty description="No payment dates supplied" />}
         {(result.data.payments.warnings || []).map(warning => <Alert key={warning} type="warning" title={warning} className="form-alert" />)}</section>
-        <section className="surface profile-card"><h2>Assumptions & limitations</h2><ul className="assumption-list">{[...(result.data.estimate.warnings || []), ...(result.data.estimate.assumptions || [])].map((text, index) => <li key={index}>{text}</li>)}</ul><p className="muted">Rule set {result.data.rules.version}</p>
+        <section className="surface profile-card"><h2>Assumptions & limitations</h2><ul className="assumption-list">{[...new Set([...(result.data.estimate.warnings || []), ...(result.data.estimate.assumptions || [])])].map(text => <li key={text}>{text.replaceAll('_', ' ')}</li>)}</ul><p className="muted">Rule set {result.data.rules.version}</p>
           <Space wrap>{result.data.rules.rules.map(rule => <a key={rule.code} href={rule.official_url} target="_blank" rel="noreferrer">{label(rule.code)} ↗</a>)}</Space></section></div>
     </>}
   </>}</QueryState>;
@@ -165,9 +172,10 @@ function MileageTab({ driverId }: { driverId: string }) {
     { accessorKey: 'purpose', header: 'Journey purpose', enableSorting: false },
     { accessorKey: 'business_miles', header: 'Business miles' },
     { accessorKey: 'private_miles', header: 'Private miles', enableSorting: false },
+    { id: 'audit', header: 'History', enableSorting: false, cell: ({ row }) => <RecordAudit driverId={driverId} recordId={row.original.id} /> },
     { id: 'odometer', header: 'Odometer evidence', enableSorting: false, cell: ({ row }) => row.original.start_odometer && row.original.end_odometer ? `${row.original.start_odometer} → ${row.original.end_odometer}` : 'Not supplied' },
   ], []);
-  return <>{summary && <div className="inline-stats section-gap"><span><strong>{summary.business_miles}</strong> recorded business miles</span><span><strong>{money(summary.deduction_pence)}</strong> eligible mileage deduction</span></div>}
+  return <><div className="inline-stats section-gap"><span><strong>{summary?.business_miles ?? '—'}</strong> recorded business miles<ExplainNumber name="Business miles" year={year} /></span><span><strong>{money(summary?.deduction_pence)}</strong> eligible mileage deduction<ExplainNumber name="Mileage deduction" year={year}><p>{summary?.business_miles ?? '—'} recorded miles; deduction {money(summary?.deduction_pence)}. Source: mileage summary API. Per-vehicle logs and effective elections determine eligibility; the summary is not filtered by table search.</p><p>Rates and official references for this year are displayed in Verified mileage rules below.</p></ExplainNumber></span></div>
     <TaxTab driverId={driverId} mileageOnly /><DataTable title="Mileage logs" resource={`drivers/${driverId}/mileage`} query={actualQuery} onQuery={setQuery} columns={columns} onData={capture} />
   </>;
 }
@@ -187,7 +195,7 @@ function DocumentsTab({ driverId }: { driverId: string }) {
     { accessorKey: 'mime_type', header: 'Type', enableSorting: false },
     { accessorKey: 'size_bytes', header: 'Size', cell: ({ row }) => `${(row.original.size_bytes / 1024).toFixed(1)} KB` },
     { accessorKey: 'scan_status', header: 'Safety check', enableSorting: false, cell: ({ row }) => <StatusBadge status={row.original.scan_status} /> },
-    { id: 'download', header: '', enableSorting: false, cell: ({ row }) => <Button size="small" icon={<Download />} disabled={!['clean', 'generated'].includes(row.original.scan_status)} onClick={() => void openDocument(row.original)}>Download</Button> },
+    { id: 'download', header: '', enableSorting: false, cell: ({ row }) => <Space><Tooltip title={['clean', 'generated'].includes(row.original.scan_status) ? 'Download private evidence' : 'Download unavailable until scanning succeeds. Ask the driver for replacement evidence if scanning fails.'}><span><Button size="small" icon={<Download />} disabled={!['clean', 'generated'].includes(row.original.scan_status)} onClick={() => void openDocument(row.original)}>Download</Button></span></Tooltip><RecordAudit driverId={driverId} recordId={row.original.id} /></Space> },
   ], [driverId]);
   return <><Alert type="info" title="Private evidence store" description="Uploads are quarantined until the configured scanner approves them. Documents are never publicly accessible." className="section-gap" />
     <DataTable title="Documents" resource={`drivers/${driverId}/documents`} query={query} onQuery={setQuery} columns={columns} toolbar={<RoleGuard action="edit"><Upload accept="image/png,image/jpeg,application/pdf" showUploadList={false} disabled={busy}
@@ -212,6 +220,7 @@ function CommunicationTab({ driverId, kind }: { driverId: string; kind: 'message
   const columns = useMemo<ColumnDef<Entry>[]>(() => [
     { accessorKey: 'created_at', header: 'Time (UK)', cell: ({ row }) => datetime(row.original.created_at) },
     { accessorKey: 'author', header: 'From', enableSorting: false },
+    { id: 'audit', header: 'History', enableSorting: false, cell: ({ row }) => <RecordAudit driverId={driverId} recordId={row.original.id} /> },
     { accessorKey: 'body', header: kind === 'messages' ? 'Message' : 'Internal note / ticket', enableSorting: false, cell: ({ row }) => <div className="message-body">{row.original.kind === 'ticket' && <Tag>Ticket</Tag>}{row.original.body}</div> },
   ], [kind]);
   const submit = async (values: { body: string; kind?: string }) => {
@@ -233,22 +242,24 @@ function CommunicationTab({ driverId, kind }: { driverId: string; kind: 'message
 
 function DriverProfileContent({ driverId }: { driverId: string }) {
   const { year } = useWorkspace();
-  const [tab, setTab] = useState('overview');
+  const location = useLocation();
+  const [tab, setTab] = useState(location.state?.tab || 'overview');
+  useEffect(() => { if (location.state?.tab) setTab(location.state.tab); }, [location.key, location.state]);
   const [auditQuery, setAuditQuery] = useState(initialQuery);
   const result = useQuery({ queryKey: ['overview', driverId, year], queryFn: ({ signal }) => api.overview(driverId, year, signal) });
   const data = result.data;
   return <><Link to="/drivers" className="back-link"><ArrowLeft /> Driver directory</Link>
-    <QueryState pending={result.isPending} error={result.error} retry={result.refetch}>{data && <>
+    <QueryState layout="profile" pending={result.isPending} error={result.error} retry={result.refetch}>{data && <>
       <div className="page-heading profile-heading"><div className="driver-cell"><Avatar size={56} className="driver-avatar">{initials(data.name)}</Avatar><div><span className="eyebrow">DRIVER 360</span><h1>{data.name}</h1><p>{data.email || 'Email not supplied'} <span className="text-divider">·</span> {data.accountant_name ? `Assigned to ${data.accountant_name}` : 'Awaiting assignment'}</p><div className="profile-plan"><StatusBadge status={data.subscription.status} />{data.subscription.plan_id && <span className="muted">{data.subscription.plan_id}</span>}<span className="muted">Tax year {year}</span></div></div></div></div>
-      <div className="stat-grid profile-stats">{[['Income', data.totals.income_pence], ['Deductible expenses', data.totals.deductible_expenses_pence], ['Profit', data.totals.profit_pence], ['Estimated tax', data.totals.estimated_tax_pence]].map(([title, value]) => <div className="surface stat-card" key={String(title)}><span>{title}</span><strong>{money(value as number | null)}</strong></div>)}</div>
+      <div className="stat-grid profile-stats">{[['Income', data.totals.income_pence], ['Deductible expenses', data.totals.deductible_expenses_pence], ['Profit', data.totals.profit_pence], ['Estimated tax', data.totals.estimated_tax_pence]].map(([title, value]) => <div className="surface stat-card" key={String(title)}><span className="number-label">{title}<ExplainNumber name={String(title)} year={year}><p>Income {money(data.totals.income_pence)}; deductible expenses {money(data.totals.deductible_expenses_pence)}; included mileage deduction {money(data.totals.mileage_deduction_pence)}; profit {money(data.totals.profit_pence)}.</p><p>Source: overview API, confirmed ledger through {data.totals.as_of ? datetime(data.totals.as_of) : 'server as-of date'}. Tax rates, bands and PAYE/loan adjustments are available in the Tax tab.</p><Button onClick={() => setTab('tax')}>Open tax breakdown and rates</Button></ExplainNumber></span><strong>{money(value as number | null)}</strong></div>)}</div>
       <Tabs activeKey={tab} onChange={setTab} destroyOnHidden className="profile-tabs" items={[
-        { key: 'overview', label: 'Overview', children: <OverviewTab data={data} /> },
+        { key: 'overview', label: 'Overview', children: <PanelBoundary resetKey={`${driverId}-${year}`}><WorkflowPanel data={data} onTab={setTab} /><OverviewTab data={data} /></PanelBoundary> },
         ...(['income', 'expenses', 'mileage', 'tax', 'documents', 'messages', 'notes', 'activity'] as const).map(key => ({ key,
           label: key === 'activity' ? 'Activity log' : key === 'notes' ? 'Internal notes' : label(key),
-          children: key === 'income' ? <LedgerTab key={`${key}-${year}`} driverId={driverId} kind={key} /> : key === 'expenses' ? <ExpenseTabs key={year} driverId={driverId} /> :
+          children: <PanelBoundary resetKey={`${key}-${year}`}>{key === 'income' ? <LedgerTab key={`${key}-${year}`} driverId={driverId} kind={key} /> : key === 'expenses' ? <ExpenseTabs key={year} driverId={driverId} /> :
             key === 'mileage' ? <MileageTab key={year} driverId={driverId} /> : key === 'tax' ? <TaxTab driverId={driverId} /> :
               key === 'documents' ? <DocumentsTab driverId={driverId} /> : key === 'messages' || key === 'notes' ? <CommunicationTab driverId={driverId} kind={key} /> :
-                <AuditTimeline resource={`drivers/${driverId}/activity`} query={auditQuery} onQuery={setAuditQuery} />,
+                <AuditTimeline resource={`drivers/${driverId}/activity`} query={auditQuery} onQuery={setAuditQuery} />}</PanelBoundary>,
         })),
       ]} />
     </>}</QueryState>

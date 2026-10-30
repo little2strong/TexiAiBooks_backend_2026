@@ -82,7 +82,7 @@
 }
 
 :root {
-  --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-ui: "Inter", "Inter fallback", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-numeric: "JetBrains Mono", "Inter", monospace;
   --font-caption: 12px;
   --font-table: 13px;

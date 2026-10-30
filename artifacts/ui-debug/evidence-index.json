@@ -1,0 +1,57 @@
+{
+  "screens": {
+    "before": {
+      "lighthouse": [
+        {
+          "screen": "dashboard",
+          "cls": 0.01130757378472222
+        },
+        {
+          "screen": "handoffs",
+          "cls": 0.005100318287037037
+        },
+        {
+          "screen": "driver-profile",
+          "cls": 0.001687988951045953
+        },
+        {
+          "screen": "tax-workspace",
+          "cls": 0.006546219353486155
+        }
+      ],
+      "errors": []
+    },
+    "after": {
+      "lighthouse": [
+        {
+          "screen": "dashboard",
+          "cls": 0.01408304207256301
+        },
+        {
+          "screen": "handoffs",
+          "cls": 0.014091670509620945
+        },
+        {
+          "screen": "driver-profile",
+          "cls": 0.01404512244539823
+        },
+        {
+          "screen": "tax-workspace",
+          "cls": 2.874678832840364e-05
+        }
+      ],
+      "errors": []
+    }
+  },
+  "geometry": {
+    "before": {
+      "loadingHeight": 426,
+      "loadedHeight": 242.265625
+    },
+    "after": {
+      "loadingHeight": 496,
+      "loadedHeight": 496
+    }
+  },
+  "reactIdleCommits": 0
+}

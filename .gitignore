@@ -17,4 +17,5 @@ playwright-report/
 test-results/
 *.tsbuildinfo
 .playwright-mcp/
+accountant-panel/.ui-baseline/
 

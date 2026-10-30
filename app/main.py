@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from uuid import UUID, uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -41,7 +42,13 @@ def create_app(
 
     @application.middleware("http")
     async def security_headers(request: Request, call_next):
+        try:
+            request_id = str(UUID(request.headers.get("X-Request-ID", "")))
+        except ValueError:
+            request_id = str(uuid4())
+        request.state.request_id = request_id
         response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
         if request.url.path.startswith("/api/v1") and request.url.path not in {"/api/v1/reference-data", "/api/v1/subscription-plans"}:
             response.headers["Cache-Control"] = "no-store"

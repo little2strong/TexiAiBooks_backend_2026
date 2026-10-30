@@ -89,8 +89,8 @@ describe("staff credential boundary", () => {
     session.start(identity);
     const fetchMock = vi
       .fn()
-      .mockImplementation(() =>
-        Promise.resolve(new Response("{}", { status: 200 })),
+      .mockImplementation((url: string) =>
+        Promise.resolve(new Response(JSON.stringify(url.includes('/drivers/search') ? { items: [], total: 0, page: 1, page_size: 25 } : { message: 'If the account exists, recovery instructions will be sent' }), { status: 200 })),
       );
     vi.stubGlobal("fetch", fetchMock);
     await request("/staff/drivers/search", {

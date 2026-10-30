@@ -1,0 +1,21 @@
+{
+  "lighthouse": [
+    {
+      "screen": "dashboard",
+      "cls": 0.01408304207256301
+    },
+    {
+      "screen": "handoffs",
+      "cls": 0.014091670509620945
+    },
+    {
+      "screen": "driver-profile",
+      "cls": 0.01404512244539823
+    },
+    {
+      "screen": "tax-workspace",
+      "cls": 0.00002874678832840364
+    }
+  ],
+  "errors": []
+}

@@ -23,6 +23,7 @@ import { StatusBadge } from "./StatusBadge";
 import { AiIndicator, ConfidenceBar } from "./AiIndicator";
 import type { Receipt } from "../api/types";
 import { feedbackDurationSeconds } from "../theme/motion";
+import { RecordAudit } from './RecordAudit';
 
 export function ReceiptViewer({
   driverId,
@@ -37,7 +38,7 @@ export function ReceiptViewer({
 }) {
   const { config } = useWorkspace();
   const staff = useSession()!.staff;
-  const { message, notification } = App.useApp();
+  const { message, notification, modal } = App.useApp();
   const cache = useQueryClient();
   const [url, setUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -109,16 +110,20 @@ export function ReceiptViewer({
         "occurred_on",
         "amount_gbp",
       ]);
+      let enteredPence: number;
+      try { enteredPence = currencyPence(extracted.amount_gbp || ''); }
+      catch (error) { void message.warning((error as Error).message); return; }
       if (
         extracted.merchant !== (receipt.merchant || "") ||
         extracted.occurred_on !== (receipt.occurred_on || "") ||
-        currencyPence(extracted.amount_gbp) !== receipt.amount_pence
+        enteredPence !== receipt.amount_pence
       ) {
         void message.warning(
           "Save the corrected extracted fields before approving or rejecting.",
         );
         return;
       }
+      if (decision === 'reject' && !await modal.confirm({ title: 'Exclude this receipt?', content: `Record receipt ${receipt.merchant || receipt.id} as excluded with no deduction? Your reason will be audited. A later correction requires reversing the confirmation.`, okText: 'Confirm exclusion', okButtonProps: { danger: true } })) return;
       setBusy(true);
       try {
         const posted = await api.mutate<{
@@ -208,6 +213,7 @@ export function ReceiptViewer({
       cache,
       message,
       notification,
+      modal,
     ],
   );
   useEffect(() => {
@@ -314,6 +320,7 @@ export function ReceiptViewer({
             Shortcuts: A approve · R reject · N next
           </span>
           <Space>
+            <RecordAudit driverId={driverId} recordId={receiptId} />
             <Button disabled={!next || busy} onClick={next}>
               Next receipt
             </Button>
@@ -449,11 +456,12 @@ export function ReceiptViewer({
               </Space>
               <div className="section-gap">
                 {receipt.review_status === "confirmed" ? (
-                  <AiIndicator reviewed />
+                  <AiIndicator reviewed reviewerName={receipt.reviewerName} />
                 ) : (
                   receipt.extraction && <AiIndicator />
                 )}
               </div>
+              {receipt.extraction && <p className="muted">OCR reason / notes: {receipt.extraction.warnings?.join('; ') || 'No reason supplied by OCR. Confidence is a provider score, not a guarantee of correctness.'}</p>}
               <h2>{receipt.merchant || "Merchant not supplied"}</h2>
               <Descriptions
                 column={1}

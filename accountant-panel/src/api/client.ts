@@ -1,4 +1,5 @@
 import { session } from "../auth/session";
+import { decodeResponse } from './contracts';
 import type {
   Config,
   Dashboard,
@@ -43,6 +44,8 @@ export async function request<T>(
   const headers = new Headers({
     Accept: options.binary ? "*/*" : "application/json",
   });
+  const requestId = crypto.randomUUID();
+  headers.set('X-Request-ID', requestId);
   const token = session.token();
   if (!options.public) {
     if (!token)
@@ -75,14 +78,14 @@ export async function request<T>(
     if (options.signal?.aborted) throw error;
     throw new ApiError(
       0,
-      "Unable to reach the API. Check the connection and try again.",
+      `Unable to reach the API. Check the connection and try again. Request ID: ${requestId}`,
     );
   }
   if (!response.ok) {
     if (response.status === 401 && !options.public && session.token() === token)
-      session.end();
+      session.end(`Your session has expired. Sign in again. Request ID: ${response.headers.get('X-Request-ID') || requestId}`);
     const messages: Record<number, string> = {
-      401: "Your credentials or authentication code are invalid or expired.",
+      401: "Your email or password is invalid, or your session has expired.",
       403: "Your role does not allow this action.",
       404: "This record is unavailable or outside your assigned drivers.",
       409: "This record changed or its accounting period is locked. Refresh before continuing.",
@@ -93,11 +96,15 @@ export async function request<T>(
     };
     throw new ApiError(
       response.status,
-      messages[response.status] || "The request failed. Please try again.",
+      `${messages[response.status] || "The request failed. Please try again."} Request ID: ${response.headers.get('X-Request-ID') || requestId}`,
     );
   }
   if (response.status === 204) return undefined as T;
-  return (options.binary ? response.blob() : response.json()) as Promise<T>;
+  if (options.binary) return response.blob() as Promise<T>;
+  let body: unknown;
+  try { body = await response.json(); }
+  catch { throw new ApiError(response.status, `The server returned unreadable data. Retry or contact support. Request ID: ${response.headers.get('X-Request-ID') || requestId}`); }
+  return decodeResponse(path, options.method || 'GET', body, response.headers.get('X-Request-ID') || requestId) as T;
 }
 
 const post = <T>(path: string, body: unknown, signal?: AbortSignal) =>

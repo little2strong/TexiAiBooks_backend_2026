@@ -1,0 +1,26 @@
+import { test, expect } from '@playwright/test';
+import { mkdir, writeFile } from 'node:fs/promises';
+test.skip(!process.env.PANEL_DIAGNOSTICS || !process.env.PANEL_TEST_PASSWORD, 'Opt-in React profiler/why-did-you-render run.');
+test('React profiler settles without an idle update loop', async ({ page }) => {
+  const errors: string[] = [], diagnostics: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); if (message.text().startsWith('[render diagnostic]')) diagnostics.push(message.text()); });
+  await page.goto('/login');
+  await page.getByLabel('Work email').fill('admin-flow@browser.example');
+  await page.getByLabel('Password', { exact: true }).fill(process.env.PANEL_TEST_PASSWORD!);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByText('Browser Driver', { exact: true }).first()).toBeVisible();
+  await page.getByRole('link', { name: /Browser Driver/ }).click();
+  await expect(page.getByRole('heading', { name: 'Browser Driver' })).toBeVisible();
+  await page.getByRole('tab', { name: 'Tax', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Payment timeline' })).toBeVisible();
+  await page.waitForTimeout(1000);
+  const before = await page.evaluate(() => window.__panelRenders?.length || 0);
+  await page.waitForTimeout(1500);
+  const renders = await page.evaluate(() => window.__panelRenders || []);
+  expect(before).toBeGreaterThan(0);
+  expect(renders.length - before).toBeLessThanOrEqual(2);
+  expect(errors).toEqual([]);
+  await mkdir('../artifacts/ui-debug/after', { recursive: true });
+  await writeFile('../artifacts/ui-debug/after/react-profiler.json', JSON.stringify({ renders, idleCommits: renders.length - before, diagnostics, errors }, null, 2));
+});

@@ -1,0 +1,24 @@
+{
+  "frontend": {
+    "tests": 68,
+    "passed": true
+  },
+  "staffBackend": {
+    "tests": 17,
+    "passed": true
+  },
+  "taxFocused": {
+    "tests": 4,
+    "passed": true
+  },
+  "browser": {
+    "tests": 12,
+    "passed": true,
+    "optInSkipped": 2
+  },
+  "lighthouseBefore": true,
+  "lighthouseAfter": true,
+  "reactDiagnostics": true,
+  "productionBuild": true,
+  "gitDiffCheck": true
+}

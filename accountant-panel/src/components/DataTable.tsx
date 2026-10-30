@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef, type ReactNode } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { hashKey, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   flexRender,
   getCoreRowModel,
@@ -16,7 +16,6 @@ import {
   Modal,
   Pagination,
   Select,
-  Skeleton,
   Space,
   Tooltip,
 } from "antd";
@@ -26,12 +25,13 @@ import {
   RefreshCw,
   Save,
   Rows3,
-  FileCheck2,
 } from "lucide-react";
 import { api, download, request } from "../api/client";
 import { tablePath } from "../api/providers";
 import type { Page, TableQuery } from "../api/types";
 import { RoleGuard } from "./RoleGuard";
+import { PanelBoundary, QueryState } from './States';
+const emptyRows: never[] = [];
 
 export interface TableProps<T> {
   resource: string;
@@ -45,7 +45,10 @@ export interface TableProps<T> {
   onData?: (data: Page<T> & Record<string, unknown>) => void;
 }
 
-export function DataTable<T extends { id: string }>({
+export function DataTable<T extends { id: string }>(props: TableProps<T>) {
+  return <PanelBoundary resetKey={props.resource}><DataTableContent {...props} /></PanelBoundary>;
+}
+function DataTableContent<T extends { id: string }>({
   resource,
   columns,
   query,
@@ -74,7 +77,7 @@ export function DataTable<T extends { id: string }>({
     rows: Map<string, { json: string; status: unknown }>;
   } | null>(null);
   const [highlights, setHighlights] = useState<Record<string, string>>({});
-  const scope = JSON.stringify([resource, query]);
+  const scope = hashKey([resource, query]);
   const identifierSearch =
     ["drivers", "handoffs"].includes(resource) &&
     /^\d+$/.test(query.search.trim());
@@ -134,7 +137,10 @@ export function DataTable<T extends { id: string }>({
   useEffect(() => {
     setSelection({});
     setSearch(query.search);
-  }, [query, resource]);
+  }, [scope]);
+  useEffect(() => {
+    if (result.data && query.page > 1 && !result.data.items.length) onQuery({ ...query, page: 1 });
+  }, [result.data, scope, onQuery]);
   useEffect(() => {
     if (result.data) onData?.(result.data);
   }, [result.data, onData]);
@@ -169,7 +175,7 @@ export function DataTable<T extends { id: string }>({
     [selectable, columns],
   );
   const table = useReactTable({
-    data: result.data?.items || [],
+    data: result.data?.items || emptyRows,
     columns: tableColumns,
     getCoreRowModel: getCoreRowModel(),
     getRowId: (row) => row.id,
@@ -295,6 +301,7 @@ export function DataTable<T extends { id: string }>({
           className="table-notice"
           type="warning"
           title="Saved views are unavailable"
+          description={views.error.message}
           action={
             <Button size="small" onClick={() => void views.refetch()}>
               Retry
@@ -311,26 +318,11 @@ export function DataTable<T extends { id: string }>({
           </Button>
         </div>
       )}
-      {result.isError ? (
-        <div className="state-padding">
-          <Alert
-            type="error"
-            showIcon
-            title="Could not load records"
-            description={result.error.message}
-            action={
-              <Button onClick={() => void result.refetch()}>Retry</Button>
-            }
-          />
-        </div>
-      ) : result.isPending ? (
-        <div
-          className="state-padding"
-          aria-label={`Loading ${title.toLowerCase()}`}
-        >
-          <Skeleton active paragraph={{ rows: 5 }} />
-        </div>
-      ) : (
+      <QueryState pending={result.isPending} error={result.error} retry={result.refetch} layout="table"
+        empty={result.isSuccess && !result.data.items.length}
+        emptyMessage="No records match this view within your access scope. Clear filters to broaden the search; ask an admin about driver assignment if needed."
+        emptyAction={<Button onClick={() => query.search || Object.keys(query.filters).some(key => key !== 'tax_year') ? onQuery({ ...query, page: 1, search: '', filters: query.filters.tax_year ? { tax_year: query.filters.tax_year } : {} }) : void result.refetch()}>Clear filters / refresh</Button>}>
+      {result.data && (
         <div
           className="table-scroll"
           tabIndex={0}
@@ -405,37 +397,20 @@ export function DataTable<T extends { id: string }>({
                 >
                   {row.getVisibleCells().map((cell) => (
                     <td key={cell.id} data-numeric={numeric(cell.column.id)}>
-                      {flexRender(
+                      <div className="cell-content">{flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext(),
-                      )}
+                      ) ?? '—'}</div>
                     </td>
                   ))}
                 </tr>
               ))}
             </tbody>
           </table>
-          {!result.data.items.length && (
-            <div className="empty-state">
-              <FileCheck2 aria-hidden="true" />
-              <p>No records match this view.</p>
-              <Button
-                type="primary"
-                onClick={() => {
-                  if (query.search || Object.keys(query.filters).length)
-                    onQuery({ ...query, page: 1, search: "", filters: {} });
-                  else void result.refetch();
-                }}
-              >
-                {query.search || Object.keys(query.filters).length
-                  ? "Clear filters"
-                  : "Refresh records"}
-              </Button>
-            </div>
-          )}
+
         </div>
       )}
-      <div className="table-footer">
+      </QueryState><div className="table-footer">
         <span aria-live="polite">
           {result.data?.total?.toLocaleString() ?? "—"} records · filtered
           results
@@ -510,3 +485,5 @@ export function DataTable<T extends { id: string }>({
     </section>
   );
 }
+
+DataTableContent.whyDidYouRender = true;

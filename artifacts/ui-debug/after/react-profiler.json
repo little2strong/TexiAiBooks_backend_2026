@@ -1,0 +1,236 @@
+{
+  "renders": [
+    {
+      "name": "QueryState:dashboard",
+      "phase": "mount",
+      "duration": 9.200000017881393
+    },
+    {
+      "name": "QueryState:table",
+      "phase": "mount",
+      "duration": 1.4000000059604645
+    },
+    {
+      "name": "QueryState:dashboard",
+      "phase": "update",
+      "duration": 82.90000000596046
+    },
+    {
+      "name": "QueryState:table",
+      "phase": "nested-update",
+      "duration": 0.5999999940395355
+    },
+    {
+      "name": "QueryState:dashboard",
+      "phase": "nested-update",
+      "duration": 20.5
+    },
+    {
+      "name": "QueryState:dashboard",
+      "phase": "update",
+      "duration": 1.7000000178813934
+    },
+    {
+      "name": "QueryState:table",
+      "phase": "update",
+      "duration": 0.6000000238418579
+    },
+    {
+      "name": "QueryState:dashboard",
+      "phase": "update",
+      "duration": 18.700000017881393
+    },
+    {
+      "name": "QueryState:dashboard",
+      "phase": "update",
+      "duration": 0
+    },
+    {
+      "name": "QueryState:table",
+      "phase": "update",
+      "duration": 17.80000001192093
+    },
+    {
+      "name": "QueryState:dashboard",
+      "phase": "update",
+      "duration": 40.19999998807907
+    },
+    {
+      "name": "QueryState:table",
+      "phase": "nested-update",
+      "duration": 14.5
+    },
+    {
+      "name": "QueryState:dashboard",
+      "phase": "nested-update",
+      "duration": 30.900000035762787
+    },
+    {
+      "name": "QueryState:table",
+      "phase": "update",
+      "duration": 0
+    },
+    {
+      "name": "QueryState:dashboard",
+      "phase": "update",
+      "duration": 0.09999999403953552
+    },
+    {
+      "name": "QueryState:profile",
+      "phase": "mount",
+      "duration": 10.399999976158142
+    },
+    {
+      "name": "QueryState:profile",
+      "phase": "update",
+      "duration": 96
+    },
+    {
+      "name": "QueryState:profile",
+      "phase": "nested-update",
+      "duration": 12.599999964237213
+    },
+    {
+      "name": "QueryState:profile",
+      "phase": "nested-update",
+      "duration": 8
+    },
+    {
+      "name": "QueryState:profile",
+      "phase": "nested-update",
+      "duration": 6.0999999940395355
+    },
+    {
+      "name": "QueryState:profile",
+      "phase": "update",
+      "duration": 3.399999976158142
+    },
+    {
+      "name": "QueryState:profile",
+      "phase": "nested-update",
+      "duration": 4.500000029802322
+    },
+    {
+      "name": "QueryState:profile",
+      "phase": "nested-update",
+      "duration": 9.5
+    },
+    {
+      "name": "QueryState:profile",
+      "phase": "update",
+      "duration": 3.5999999940395355
+    },
+    {
+      "name": "QueryState:profile",
+      "phase": "update",
+      "duration": 2.2000000178813934
+    },
+    {
+      "name": "QueryState:profile",
+      "phase": "update",
+      "duration": 2.4000000059604645
+    },
+    {
+      "name": "QueryState:profile",
+      "phase": "update",
+      "duration": 25.30000001192093
+    },
+    {
+      "name": "QueryState:tax",
+      "phase": "nested-update",
+      "duration": 8.700000017881393
+    },
+    {
+      "name": "QueryState:profile",
+      "phase": "nested-update",
+      "duration": 14.700000017881393
+    },
+    {
+      "name": "QueryState:profile",
+      "phase": "update",
+      "duration": 2
+    },
+    {
+      "name": "QueryState:profile",
+      "phase": "update",
+      "duration": 3.7000000178813934
+    },
+    {
+      "name": "QueryState:panel",
+      "phase": "mount",
+      "duration": 9.799999982118607
+    },
+    {
+      "name": "QueryState:tax",
+      "phase": "update",
+      "duration": 43.099999994039536
+    },
+    {
+      "name": "QueryState:profile",
+      "phase": "update",
+      "duration": 46.89999997615814
+    },
+    {
+      "name": "QueryState:panel",
+      "phase": "nested-update",
+      "duration": 0.9000000059604645
+    },
+    {
+      "name": "QueryState:tax",
+      "phase": "nested-update",
+      "duration": 2.800000011920929
+    },
+    {
+      "name": "QueryState:profile",
+      "phase": "nested-update",
+      "duration": 2.800000011920929
+    },
+    {
+      "name": "QueryState:panel",
+      "phase": "update",
+      "duration": 0
+    },
+    {
+      "name": "QueryState:tax",
+      "phase": "update",
+      "duration": 0
+    },
+    {
+      "name": "QueryState:profile",
+      "phase": "update",
+      "duration": 0
+    }
+  ],
+  "idleCommits": 0,
+  "diagnostics": [
+    "[render diagnostic] Field",
+    "[render diagnostic] Unknown",
+    "[render diagnostic] Field",
+    "[render diagnostic] Field",
+    "[render diagnostic] Field",
+    "[render diagnostic] Unknown",
+    "[render diagnostic] Field",
+    "[render diagnostic] Field",
+    "[render diagnostic] Field",
+    "[render diagnostic] Field",
+    "[render diagnostic] Field",
+    "[render diagnostic] Field",
+    "[render diagnostic] Field",
+    "[render diagnostic] Field",
+    "[render diagnostic] Field",
+    "[render diagnostic] Unknown",
+    "[render diagnostic] Field",
+    "[render diagnostic] Unknown",
+    "[render diagnostic] DataTableContent",
+    "[render diagnostic] DataTableContent",
+    "[render diagnostic] Unknown",
+    "[render diagnostic] Unknown",
+    "[render diagnostic] Unknown",
+    "[render diagnostic] Unknown",
+    "[render diagnostic] Unknown",
+    "[render diagnostic] Unknown",
+    "[render diagnostic] Unknown",
+    "[render diagnostic] Unknown"
+  ],
+  "errors": []
+}
