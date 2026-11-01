@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Avatar, Button, Dropdown, Input, Modal, Select, Tooltip } from 'antd';
-import { LayoutDashboard, Sparkles, Landmark, Car, ClipboardCheck, ChevronDown, FileCheck2, LogOut, PanelLeftClose, PanelLeftOpen, Search, Settings, Users, ShieldCheck } from 'lucide-react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Avatar, Button, Dropdown, Input, Modal, Select } from 'antd';
+import { LayoutDashboard, Sparkles, Car, ClipboardCheck, ChevronDown, FileCheck2, History, LogOut, PanelLeftClose, PanelLeftOpen, Percent, Search, Users, ShieldCheck, UserLock } from 'lucide-react';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useSession, useWorkspace } from '../auth/context';
 import { api } from '../api/client';
@@ -15,6 +15,9 @@ import { ThemeToggle } from './ThemeToggle';
 import { Palette } from 'lucide-react';
 import type { InputRef } from 'antd';
 
+const sections: [string, string][] = [['/returns', 'Tax returns'], ['/ai-review', 'AI review'], ['/handoffs', 'Handoff queue'], ['/drivers', 'Driver directory'],
+  ['/admin/users', 'Users & roles'], ['/admin/rates', 'Tax rates'], ['/admin/privacy', 'Privacy requests'], ['/admin/audit', 'Audit log']];
+
 export function WorkspaceLayout() {
   const active = useSession()!;
   const { year, setYear, config } = useWorkspace();
@@ -23,7 +26,9 @@ export function WorkspaceLayout() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState(initialQuery);
   const navigate = useNavigate();
+  const location = useLocation();
   const searchInput = useRef<InputRef>(null);
+  const place = sections.find(([path]) => location.pathname.startsWith(path))?.[1] || 'Dashboard';
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); searchInput.current?.focus(); }
@@ -44,15 +49,15 @@ export function WorkspaceLayout() {
       <div className="practice-label">YOUR WORKSPACE</div>
       <nav><NavLink to="/" end aria-label="Dashboard"><LayoutDashboard aria-hidden="true" /><span>Dashboard</span></NavLink>
         <NavLink to="/handoffs" aria-label="Handoff queue"><ClipboardCheck aria-hidden="true" /><span>Handoff queue</span></NavLink>
+        <NavLink to="/returns" aria-label="Tax returns"><FileCheck2 aria-hidden="true" /><span>Tax returns</span></NavLink>
+        <NavLink to="/ai-review" aria-label="AI review"><Sparkles aria-hidden="true" /><span>AI review</span></NavLink>
         <NavLink to="/drivers" aria-label="Driver directory"><Car aria-hidden="true" /><span>Driver directory</span></NavLink>
-        <NavLink to="/styleguide" aria-label="Styleguide"><Palette aria-hidden="true" /><span>Styleguide</span></NavLink></nav>
-      <div className="practice-label next-label">NEXT DELIVERY</div>
-      <div className="future-nav" role="group" aria-label="Planned features"><Tooltip title="Screen 5 — subsequent delivery"><span><FileCheck2 /><span>Tax returns</span><small>SOON</small></span></Tooltip>
-        <Tooltip title="Screen 6 — subsequent delivery"><span><Sparkles /><span>AI review</span><small>SOON</small></span></Tooltip>
-        {can(active.staff.role, 'admin') && <><Tooltip title="Screen 7 — subsequent delivery"><span><Users /><span>Users & roles</span></span></Tooltip>
-          <Tooltip title="Screen 7 — subsequent delivery"><span><Landmark /><span>Subscriptions</span></span></Tooltip>
-          <Tooltip title="Screen 7 — subsequent delivery"><span><Settings /><span>Settings</span></span></Tooltip></>}
-      </div>
+        {import.meta.env.DEV && <NavLink to="/styleguide" aria-label="Styleguide"><Palette aria-hidden="true" /><span>Styleguide</span></NavLink>}</nav>
+      {can(active.staff.role, 'admin') && <><div className="practice-label workspace-nav-label">ADMINISTRATION</div>
+        <nav aria-label="Administration"><NavLink to="/admin/users" aria-label="Users and roles"><Users aria-hidden="true" /><span>Users & roles</span></NavLink>
+          <NavLink to="/admin/rates" aria-label="Tax rates"><Percent aria-hidden="true" /><span>Tax rates</span></NavLink>
+          <NavLink to="/admin/privacy" aria-label="Privacy requests"><UserLock aria-hidden="true" /><span>Privacy requests</span></NavLink>
+          <NavLink to="/admin/audit" aria-label="Audit log"><History aria-hidden="true" /><span>Audit log</span></NavLink></nav></>}
       <div className="sidebar-bottom"><div className="security-card"><ShieldCheck /><strong>Secure workspace</strong><span>Access is scoped. Actions are audited.</span></div>
         <Dropdown menu={{ items: [{ key: 'logout', label: 'Sign out', icon: <LogOut />, onClick: () => void signOut() }] }} trigger={['click']}>
           <button className="staff-menu" aria-label={`${active.staff.name}, account menu`}><Avatar className="staff-avatar">{initials(active.staff.name)}</Avatar><span><strong>{active.staff.name}</strong><small>{label(active.staff.role)}</small></span><ChevronDown /></button>
@@ -60,7 +65,7 @@ export function WorkspaceLayout() {
     </aside>
     <div className="workspace-body"><header className="topbar">
       <Button type="text" icon={collapsed ? <PanelLeftOpen /> : <PanelLeftClose />} aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'} onClick={() => setCollapsed(!collapsed)} />
-      <span className="topbar-context">Accountant panel <span>/</span> <strong>Workspace</strong></span>
+      <span className="topbar-context">Accountant panel <span>/</span> <strong>{place}</strong></span>
       <Input.Search ref={searchInput} prefix={<Search />} suffix={<kbd>⌘ / Ctrl K</kbd>} aria-label="Global driver search" placeholder="Search drivers…" value={global} maxLength={254}
         onChange={event => setGlobal(event.target.value)} onSearch={value => { if (value.trim()) { setSearchQuery({ ...initialQuery, search: value.trim() }); setSearchOpen(true); setGlobal(''); } }} className="global-search" />
       <Select aria-label="Workspace tax year" className="year-select" value={year} onChange={setYear} options={config.tax_years.map(value => ({ value, label: `Tax year ${value}` }))} />

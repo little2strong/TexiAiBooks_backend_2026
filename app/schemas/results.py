@@ -147,6 +147,14 @@ class TaxEstimateRead(Result):
     income_tax_pence: int
     class4_pence: int
     total_pence: int
+    class2_status: str = "unknown"
+    class2_weekly_rate_pence: int | None = None
+    class2_small_profits_threshold_pence: int | None = None
+    adjustment_income_pence: int = 0
+    adjustment_expenses_pence: int = 0
+    adjustment_capital_allowances_pence: int = 0
+    frozen: bool = False
+    filing_reference: str | None = None
     estimate_only: bool
     bands: list[dict]
     warnings: list[str]

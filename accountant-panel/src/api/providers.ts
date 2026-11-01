@@ -13,7 +13,7 @@ import type { Page, TableQuery } from "./types";
 
 export function tablePath(resource: string): string {
   if (
-    !/^(drivers|handoffs|accountants|drivers\/[a-f0-9-]{36}\/(income|expenses|receipts|mileage|documents|messages|notes|activity))$/.test(
+    !/^(drivers|handoffs|accountants|returns|ai-reviews|users|rates|privacy-requests|audit|drivers\/[a-f0-9-]{36}\/(income|expenses|receipts|mileage|documents|messages|notes|activity|compliance))$/.test(
       resource,
     )
   ) {

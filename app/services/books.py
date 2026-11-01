@@ -23,7 +23,7 @@ def catalog_id(kind, code):
 
 SOURCE_CODES = {"uber": "platform", "bolt": "platform", "operator": "operator", "cash": "cash", "other": "other"}
 CATEGORY_CODES = {
-    "platform_fees": False, "parking": False, "tolls": False, "phone_data": False,
+    "platform_fees": False, "operator_fees": False, "parking": False, "tolls": False, "phone_data": False,
     "licensing": False, "fuel": True, "maintenance": True, "insurance": True,
     "cleaning": True, "vehicle_purchase": True, "fines": False, "meals": False, "other": False,
 }

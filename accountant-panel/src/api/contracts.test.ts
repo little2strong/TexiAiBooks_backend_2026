@@ -25,6 +25,13 @@ describe('actual synthetic staff API responses', () => {
   it('rejects malformed rows rather than silently returning an empty page', () => {
     expect(responseSchema('/staff/drivers/search', 'POST').safeParse({ items: [{ id: 'x' }], total: 1, page: 1, page_size: 25 }).success).toBe(false);
   });
+  it('reads search paths as pages, never as single records', () => {
+    const empty = { items: [], total: 0, page: 1, page_size: 25 };
+    for (const path of ['/staff/users/search', '/staff/privacy-requests/search', '/staff/rates/search', '/staff/returns/search', '/staff/ai-reviews/search', '/staff/audit/search', '/staff/drivers/driver/compliance/search']) {
+      expect(responseSchema(path, 'POST').safeParse(empty).success, path).toBe(true);
+    }
+    expect(responseSchema('/staff/users/id', 'PATCH').safeParse(empty).success).toBe(false);
+  });
   it('distinguishes unknown, zero and invalid dates', () => {
     expect(money(null)).toBe('—'); expect(money(0)).toBe('£0.00'); expect(date('bad')).toBe('—');
   });

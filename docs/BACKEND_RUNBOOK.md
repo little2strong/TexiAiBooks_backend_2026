@@ -1,5 +1,9 @@
 # Backend runbook
 
+**Upgrading to migration `0007`:** stop the API, run `python -m alembic upgrade head`, then restart it. The new code reads `tax_rates` and `tax_returns`, so an un-migrated database fails tax and ledger requests. `0007` refuses to downgrade while its tables hold records.
+
+**Demo data:** `scripts/seed_demo.py` loads invented personas (Ali Khan, Mohammed Rahman and others) and refuses any database whose name does not end in `_demo`. It is for a separate demo database only. **Browser tests beside a dev server:** set `PANEL_TEST_PORT` to a free port so Playwright does not collide with Vite on 5173.
+
 For the separate accountant panel, migration `0006`, explicit staff provisioning, email/password sign-in, optional Compose `panel` profile and browser checks, follow [accountant-panel/README.md](../accountant-panel/README.md). Driver tax identifiers require `IDENTIFIER_ENCRYPTION_KEYS`; staff sign-in uses email and password without an authenticator. No default admin or staff account is installed. Staff tokens have a distinct audience/type; driver JWTs cannot authorize staff access.
 
 Python 3.12, PostgreSQL 16, pinned requirements, FastAPI/SQLAlchemy 2/Pydantic 2/Alembic. Work in the existing repository. No production deployment or development database migration was performed by this implementation.

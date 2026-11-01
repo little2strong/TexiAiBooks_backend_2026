@@ -43,6 +43,8 @@ export interface TableProps<T> {
   selectable?: boolean;
   selectionAction?: (selected: T[], clear: () => void) => ReactNode;
   onData?: (data: Page<T> & Record<string, unknown>) => void;
+  /** Admin and workflow tables have no CSV contract on the server. */
+  exportable?: boolean;
 }
 
 export function DataTable<T extends { id: string }>(props: TableProps<T>) {
@@ -58,6 +60,7 @@ function DataTableContent<T extends { id: string }>({
   selectable,
   selectionAction,
   onData,
+  exportable = true,
 }: TableProps<T>) {
   const { message } = App.useApp();
   const cache = useQueryClient();
@@ -279,7 +282,7 @@ function DataTableContent<T extends { id: string }>({
             onClick={() => setSaveOpen(true)}
           />
         </Tooltip>
-        <RoleGuard action="export">
+        {exportable && <RoleGuard action="export">
           <Button
             icon={<Download />}
             onClick={() => void exportCsv()}
@@ -287,7 +290,7 @@ function DataTableContent<T extends { id: string }>({
           >
             Export CSV
           </Button>
-        </RoleGuard>
+        </RoleGuard>}
         <Tooltip title="Refresh records">
           <Button
             icon={<RefreshCw />}

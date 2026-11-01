@@ -1,5 +1,30 @@
 # Backend implementation status
 
+## 1 November 2026: tax return workspace, administration and driver tools
+
+Requires migration `0007` (`alembic upgrade head`). Measured against the TaxiAiBooks Full App Developer Build Spec, Prior-Year & MTD spec and Gap Audit.
+
+**Added.** Effective-dated `tax_rates` overlay (draft → approved → active, with a dry-run check at draft time); filed years freeze their calculation. Tax return workspace: blocking checklist, accountant adjustments that never overwrite driver records, driver sign-off on an exact review version, filing recorded only after sign-off, year lock and reopen with history. AI review feedback. Users, roles and teams. Privacy requests with deletion that keeps tax records until the retention date. MTD status engine and tax history, MTD calendar, VAT monitor, home summary, licence and vehicle documents with reminders, platform figure disputes, vehicle disposal, driver revocation of accountant access and a who-viewed-my-data log. Class 2 position in estimates. Operator fees category.
+
+**Changed behaviour.**
+- The 10,000-mile first band now applies per person across all simplified vehicles (it was per vehicle). The spec says per person and HMRC's BIM75005 examples work from one total, but neither states the two-vehicle case outright, so have TaxAssist confirm it.
+- A handoff can no longer be marked Filed directly. Filing is recorded on the tax return, after driver sign-off. Pending receipts, open reconciliation items and unconfirmed drafts now block sign-off rather than being advisories.
+- Fixed a flaky audit order: events created in one transaction shared a timestamp, so "latest review" could be wrong.
+- The panel opens on the year with the next filing deadline, not the current tax year.
+
+**Spec corrections.** The spec seeds mileage at 45p and expects 11,000 miles = £4,750. gov.uk and BIM75005 give 55p for 2026-27 (45p before 6 April 2026), so that case is £4,750 in 2025-26 and £5,750 in 2026-27. The code follows gov.uk.
+
+**Not built or not live.**
+- Needs your credentials or provider choice: HMRC submission and recognition, real OCR, the Claude assistant and RAG store, SMS, push and email delivery, S3-style storage.
+- Capital allowance calculation: accountants enter allowances as adjustments, so there is no pool or CO2 engine, no balancing charge calculation on disposal, and the 14% main-rate question is still open.
+- Income records hold one amount rather than separate gross, commission, tips and bonus columns. Recurring expenses, bank statement upload, offline sync, SA302 extraction, GPS trip endpoints and the automatic purge job at the retention date are also not built.
+- TOTP remains off for staff by the earlier decision, although the spec requires it.
+- Supabase and row-level security were not adopted; ownership stays enforced in the service layer, on self-managed PostgreSQL.
+
+**No payment system in this version (product decision, 2 November 2026).** The panel and new read models carry no billing data. Every feature is available without a plan: `ENTITLEMENT_REQUIREMENTS` must stay empty. The earlier driver endpoints (`/subscription-plans`, `/me/subscription*`, `/billing/webhooks/*`) remain in place but inert, with no plans configured and no provider, so checkout and webhooks return 503.
+
+**Verification.** Backend 267 passed, 1 skipped (the opt-in browser harness, run separately). Frontend 69 passed; build passed. Live browser suite 16 passed, 2 opt-in evidence specs skipped, on disposable PostgreSQL with axe WCAG A/AA checks. Migration `0007` upgrade, guarded downgrade and drift check passed on a disposable database. The development database was not migrated. Rates are not accountant-verified.
+
 29 October addendum: a separate accountant web panel and additive staff APIs now implement requested screens 1–4. See [the panel README](../accountant-panel/README.md) and [staff contract table](ACCOUNTANT_PANEL_CONTRACTS.md). Migration `0006` adds staff/team membership, assignments, handoff state, human messages/notes, audit events and private saved views. Current OpenAPI has **152 operations**; the original 93-ID coverage classification below remains about driver requirements. Original counts below describe the 27 October checkpoint, not completion of all accountant/admin screens. Existing tax/provider limitations remain.
 
 ## Accountant panel verification — 29 October 2026

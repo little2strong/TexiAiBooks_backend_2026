@@ -208,8 +208,8 @@ def policy(id: UUID, data: PolicyInput, user: CurrentUser, db: SessionDep, reque
 
 
 @router.get("/tax/rules", operation_id="T05")
-def rules(tax_year: str, region: str, user: CurrentUser):
-    return rule_set(tax_year,region)
+def rules(tax_year: str, region: str, user: CurrentUser, db: SessionDep):
+    return rule_set(tax_year,region,db)
 
 
 @router.get("/tax/estimate", operation_id="T01",response_model=TaxEstimateRead)

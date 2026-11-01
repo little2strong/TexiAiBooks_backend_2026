@@ -16,6 +16,9 @@ import { DashboardPage } from "./pages/Dashboard";
 import { HandoffsPage } from "./pages/Handoffs";
 import { DriversPage } from "./pages/Drivers";
 import { DriverProfilePage } from "./pages/DriverProfile";
+import { ReturnsPage, ReturnWorkspacePage } from "./pages/Returns";
+import { AiReviewPage } from "./pages/AiReview";
+import { AuditPage, PrivacyPage, RatesPage, UsersPage } from "./pages/Admin";
 import { ThemeProvider } from "./theme/ThemeProvider";
 import { feedbackDurationSeconds } from "./theme/motion";
 import "@fontsource/inter/400.css";
@@ -115,6 +118,13 @@ function Panel() {
                 <Route path="handoffs" element={<RoutePanel><HandoffsPage /></RoutePanel>} />
                 <Route path="drivers" element={<RoutePanel><DriversPage /></RoutePanel>} />
                 <Route path="drivers/:id" element={<RoutePanel><DriverProfilePage /></RoutePanel>} />
+                <Route path="returns" element={<RoutePanel><ReturnsPage /></RoutePanel>} />
+                <Route path="returns/:id" element={<RoutePanel><ReturnWorkspacePage /></RoutePanel>} />
+                <Route path="ai-review" element={<RoutePanel><AiReviewPage /></RoutePanel>} />
+                <Route path="admin/users" element={<RoutePanel><UsersPage /></RoutePanel>} />
+                <Route path="admin/rates" element={<RoutePanel><RatesPage /></RoutePanel>} />
+                <Route path="admin/privacy" element={<RoutePanel><PrivacyPage /></RoutePanel>} />
+                <Route path="admin/audit" element={<RoutePanel><AuditPage /></RoutePanel>} />
               </Route>
               <Route
                 path="*"

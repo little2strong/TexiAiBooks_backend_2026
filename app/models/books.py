@@ -251,3 +251,63 @@ class PhoneChallenge(Base):
     resend_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class TaxReturn(Owned, Base):
+    """One reviewable return per driver and year. Filing is recorded, never sent."""
+    __tablename__ = "tax_returns"
+    __table_args__ = (UniqueConstraint("owner_id", "tax_year"),
+        CheckConstraint("status IN ('in_preparation','awaiting_driver','driver_approved','filed')", name="status_valid"))
+    tax_year: Mapped[str] = mapped_column(String(7))
+    status: Mapped[str] = mapped_column(String(24), default="in_preparation")
+    review_version: Mapped[int] = mapped_column(Integer, default=0)
+    snapshot: Mapped[dict | None] = mapped_column(JSONB)
+    earlier_snapshots: Mapped[list] = mapped_column(JSONB, default=list)
+    driver_decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    driver_note: Mapped[str | None] = mapped_column(String(2000))
+    filing_reference: Mapped[str | None] = mapped_column(String(200))
+    filed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    filed_by: Mapped[UUID | None] = mapped_column(ForeignKey("staff_accounts.id"))
+
+
+class TaxAdjustment(Owned, Base):
+    """Accountant adjustments sit on top of driver records and never overwrite them."""
+    __tablename__ = "tax_adjustments"
+    __table_args__ = (CheckConstraint("amount_pence <> 0", name="amount_nonzero"),
+        CheckConstraint("target IN ('income','expenses','capital_allowances')", name="target_valid"))
+    return_id: Mapped[UUID] = mapped_column(ForeignKey("tax_returns.id"), index=True)
+    tax_year: Mapped[str] = mapped_column(String(7))
+    target: Mapped[str] = mapped_column(String(24))
+    amount_pence: Mapped[int] = mapped_column(BigInteger)
+    record_type: Mapped[str | None] = mapped_column(String(32))
+    record_id: Mapped[UUID | None] = mapped_column(Uuid)
+    reason: Mapped[str] = mapped_column(String(500))
+    created_by: Mapped[UUID] = mapped_column(ForeignKey("staff_accounts.id"))
+    voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    voided_by: Mapped[UUID | None] = mapped_column(ForeignKey("staff_accounts.id"))
+    void_reason: Mapped[str | None] = mapped_column(String(500))
+
+
+class DriverDocument(Owned, Base):
+    __tablename__ = "driver_documents"
+    __table_args__ = (Index("ix_driver_documents_expiry", "owner_id", "expires_on"),)
+    doc_type: Mapped[str] = mapped_column(String(24))
+    reference: Mapped[str | None] = mapped_column(String(100))
+    expires_on: Mapped[date | None] = mapped_column(Date)
+    vehicle_id: Mapped[UUID | None] = mapped_column(ForeignKey("vehicles.id"))
+    file_id: Mapped[UUID | None] = mapped_column(ForeignKey("private_files.id"))
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class PrivacyRequest(Owned, Base):
+    __tablename__ = "privacy_requests"
+    __table_args__ = (CheckConstraint("kind IN ('export','access','correction','deletion')", name="kind_valid"),
+        CheckConstraint("status IN ('received','in_progress','completed','rejected')", name="status_valid"))
+    kind: Mapped[str] = mapped_column(String(16))
+    status: Mapped[str] = mapped_column(String(16), default="received")
+    detail: Mapped[str | None] = mapped_column(String(2000))
+    due_on: Mapped[date] = mapped_column(Date)
+    retain_until: Mapped[date | None] = mapped_column(Date)
+    resolution: Mapped[str | None] = mapped_column(String(2000))
+    handled_by: Mapped[UUID | None] = mapped_column(ForeignKey("staff_accounts.id"))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

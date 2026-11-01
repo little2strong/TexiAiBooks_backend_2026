@@ -5,10 +5,10 @@ from uuid import UUID
 from fastapi import HTTPException
 from sqlalchemy import select
 
-from app.models.books import Business, Election, Mileage, Policy, SupportRecord, Transaction, Vehicle
+from app.models.books import Business, Election, Mileage, Policy, Profile, SupportRecord, TaxReturn, Transaction, Vehicle
 from app.schemas.books import TransactionInput
 from app.services.books import (CATEGORIES, SOURCES, catalog_id, check_version, digest,
-                                history, owned, pence, primary_business, rows, tax_dates, wire, validate_input)
+                                history, owned, pence, primary_business, rows, tax_dates, tax_year, wire, validate_input)
 
 TX_FIELDS = ["amount_pence", "occurred_on", "source_id", "category_id", "vehicle_id", "payment_method",
              "description", "no_receipt_reason", "business_use_percent", "deductible_pence", "review_status",
@@ -16,6 +16,8 @@ TX_FIELDS = ["amount_pence", "occurred_on", "source_id", "category_id", "vehicle
 
 
 def ensure_open_period(db,owner,business_id,occurred_on):
+    if db.scalar(rows(db,TaxReturn,owner).where(TaxReturn.tax_year==tax_year(occurred_on),TaxReturn.status=="filed")):
+        raise HTTPException(409,"This tax year is filed and locked; an accountant must reopen it for amendment")
     updates=db.scalars(rows(db,SupportRecord,owner).where(SupportRecord.kind=="mtd_update",
         SupportRecord.data["status"].astext.in_(["queued","submitting","accepted","partial","unknown"])))
     for update in updates:
@@ -162,7 +164,7 @@ def sync_legacy(db, expense):
     history(db, row, "legacy_sync", before)
 
 
-def mileage_total(db, owner, year, vehicle_id=None, as_of=None, business_id=None):
+def mileage_logs(db, owner, year, vehicle_id=None, as_of=None, business_id=None):
     start, end = tax_dates(year)
     from app.services.tax import today
     end = min(end, as_of or today())
@@ -171,38 +173,76 @@ def mileage_total(db, owner, year, vehicle_id=None, as_of=None, business_id=None
         query = query.where(Mileage.vehicle_id == vehicle_id)
     if business_id:
         query = query.where(Mileage.business_id == business_id)
-    totals = {}
-    for row in db.scalars(query):
-        election = db.scalar(rows(db, Election, owner).where(Election.vehicle_id == row.vehicle_id,
-            Election.effective_from <= row.occurred_on).order_by(Election.effective_from.desc()))
-        key = row.vehicle_id
-        miles, eligible = totals.get(key, (Decimal(0), Decimal(0)))
-        totals[key] = (miles + row.business_miles, eligible + (row.business_miles if election and election.method == "mileage" else 0))
-    total_miles = sum((x[0] for x in totals.values()), Decimal(0))
-    deduction = 0
-    for vehicle, (_, miles) in totals.items():
-        item = owned(db, Vehicle, owner, vehicle)
-        deduction += mileage_deduction(miles, year, item.licence_class)
+    return list(db.scalars(query))
+
+
+def election_on(db, owner, vehicle_id, day):
+    return db.scalar(rows(db, Election, owner).where(Election.vehicle_id == vehicle_id,
+        Election.effective_from <= day).order_by(Election.effective_from.desc()))
+
+
+def eligible_miles(db, owner, year, as_of=None, vehicle_id=None, business_id=None):
+    """Simplified-method miles, split by rate family. Hackney vehicles earn no mileage."""
+    cars, motorcycles = Decimal(0), Decimal(0)
+    for row in mileage_logs(db, owner, year, vehicle_id, as_of, business_id):
+        election = election_on(db, owner, row.vehicle_id, row.occurred_on)
+        if not election or election.method != "mileage":
+            continue
+        vehicle_class = owned(db, Vehicle, owner, row.vehicle_id).licence_class
+        if vehicle_class == "motorcycle":
+            motorcycles += row.business_miles
+        elif vehicle_class != "hackney":
+            cars += row.business_miles
+    return cars, motorcycles
+
+
+def mileage_rates(db, owner, year):
+    from app.services.tax import rule_set, rule_values
+    tax_profile = db.scalar(rows(db, Profile, owner).where(Profile.kind == "tax", Profile.scope == year))
+    region = tax_profile.data.get("region", "england_wales_ni") if tax_profile else "england_wales_ni"
+    return rule_values(rule_set(year, region, db))["mileage"]
+
+
+def mileage_total(db, owner, year, vehicle_id=None, as_of=None, business_id=None):
+    logs = mileage_logs(db, owner, year, vehicle_id, as_of, business_id)
+    # No logs means no claim, even for a year with no verified rules yet.
+    if not logs:
+        return {"business_miles": "0.00", "deduction_pence": 0, "threshold_remaining": "10000.00"}
+    total_miles = sum((row.business_miles for row in logs), Decimal(0))
+    rates = mileage_rates(db, owner, year)
+    cars, motorcycles = eligible_miles(db, owner, year, as_of, vehicle_id, business_id)
+    # The first-band limit is per person, per tax year, across all simplified vehicles.
+    deduction = mileage_deduction(cars, year, rates=rates) + mileage_deduction(motorcycles, year, "motorcycle", rates=rates)
+    first_band = Decimal(rates["first_band_miles"])
     return {"business_miles": format(total_miles, ".2f"), "deduction_pence": deduction,
-            "threshold_remaining": format(sum((max(Decimal(0), Decimal(10000) - x[1]) for x in totals.values()), Decimal(0)), ".2f")}
+            "threshold_remaining": format(max(Decimal(0), first_band - cars), ".2f")}
 
 
-def mileage_deduction(miles, year, vehicle_class="private_hire"):
+def builtin_mileage(year):
     if year not in {"2025-26", "2026-27"}:
         raise HTTPException(422, "Mileage rules are not verified for this tax year")
+    return {"first_band_miles": "10000.00", "first_rate_pence": 55 if year == "2026-27" else 45,
+            "remaining_rate_pence": 25, "motorcycle_rate_pence": 24, "band_scope": "person"}
+
+
+def mileage_deduction(miles, year, vehicle_class="private_hire", rates=None):
+    rates = rates or builtin_mileage(year)
     if vehicle_class == "hackney":
         return 0
     if vehicle_class == "motorcycle":
-        return pence(miles * 24)
-    first_rate = 55 if year == "2026-27" else 45
-    return pence(min(miles, Decimal(10000)) * first_rate + max(Decimal(0), miles - 10000) * 25)
+        return pence(miles * rates["motorcycle_rate_pence"])
+    first_band = Decimal(rates["first_band_miles"])
+    return pence(min(miles, first_band) * rates["first_rate_pence"] + max(Decimal(0), miles - first_band) * rates["remaining_rate_pence"])
 
 
 def validate_mileage(db, owner, data, exclude_id=None):
     owned(db, Business, owner, data.business_id)
     ensure_open_period(db,owner,data.business_id,data.occurred_on)
     vehicle = owned(db, Vehicle, owner, data.vehicle_id)
-    if not vehicle.active or data.occurred_on < vehicle.business_start_on:
+    disposed_on = vehicle.details.get("disposed_on")
+    # A sold vehicle keeps its earlier trips editable but takes no new mileage afterwards.
+    if data.occurred_on < vehicle.business_start_on or (not vehicle.active and not disposed_on) or (
+            disposed_on and data.occurred_on > date.fromisoformat(disposed_on)):
         raise HTTPException(422, "Vehicle not active on mileage date")
     query=rows(db,Mileage,owner).where(Mileage.vehicle_id==data.vehicle_id,Mileage.active.is_(True))
     if exclude_id: query=query.where(Mileage.id!=exclude_id)

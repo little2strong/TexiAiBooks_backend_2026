@@ -2,7 +2,7 @@ import { Alert, Button, Skeleton } from 'antd';
 import { Component, Profiler, type ReactNode } from 'react';
 declare global { interface Window { __panelRenders?: { name: string; phase: string; duration: number }[] } }
 
-export type StateLayout = 'panel' | 'dashboard' | 'profile' | 'tax' | 'table';
+export type StateLayout = 'panel' | 'dashboard' | 'profile' | 'tax' | 'table' | 'stats';
 export function LoadingLayout({ layout }: { layout: StateLayout }) {
   if (layout === 'dashboard' || layout === 'profile' || layout === 'tax') return <>
     {layout === 'profile' && <div className="surface profile-heading loading-profile"><Skeleton active avatar paragraph={{ rows: 2 }} /></div>}

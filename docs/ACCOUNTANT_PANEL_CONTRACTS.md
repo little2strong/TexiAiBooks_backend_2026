@@ -1,5 +1,22 @@
 # Accountant panel: additive contracts (listed before implementation)
 
+**1 November 2026 update.** Screens 5–7 are now implemented, and the delivery boundary at the end of this document no longer applies. Exact schemas are in [openapi.json](openapi.json).
+
+| Group | Paths under `/api/v1` | Who |
+| --- | --- | --- |
+| Tax returns | `POST /staff/returns`, `POST /staff/returns/search`, `GET /staff/returns/{id}`, `POST /staff/returns/{id}/adjustments`, `.../adjustments/{id}/void`, `.../request-approval`, `.../file`, `.../reopen` | Scoped staff; support reads only; filing and reopening a filed return need senior or admin |
+| Driver sign-off | `GET /me/tax-returns`, `POST /me/tax-returns/{id}/decision` | Owning driver |
+| AI review | `POST /staff/ai-reviews/search`, `.../summary`, `.../{receipt_id}/feedback` | Scoped staff; support reads only |
+| Users and audit | `POST /staff/users/search`, `POST /staff/users`, `PATCH /staff/users/{id}`, `POST /staff/teams/search`, `POST /staff/teams`, `POST /staff/audit/search` | Admin |
+| Rates | `POST /staff/rates/search`, `POST /staff/rates/effective`, `POST /staff/rates`, `.../{id}/approve`, `.../activate`, `.../retire` | Admin |
+| Privacy | `POST /staff/privacy-requests/search`, `POST /staff/privacy-requests`, `PATCH /staff/privacy-requests/{id}`, `.../{id}/execute-deletion`; driver `POST` and `GET /me/privacy-requests` | Admin; owning driver |
+| Driver 360 | `POST /staff/drivers/{id}/mtd`, `.../mtd/override` (senior or admin), `/staff/drivers/{id}/compliance/search` | Scoped staff |
+| Driver tools | `/tax-history`, `/me/trade`, `/mtd/status`, `/mtd/calendar`, `/mtd/voluntary`, `/mtd/exit`, `/trade/cease`, `/tax/vat-monitor`, `/tax/platform-reconciliation`, `/tax/platform-reports`, `/me/documents`, `/vehicles/{id}/disposal`, `/me/accountant-access`, `/me/accountant-access/revocation`, `/me/access-log`, `/home/summary` | Owning driver |
+
+This version has no payment system: `POST /drivers/{id}/overview` no longer returns `subscription`.
+
+`PATCH /staff/handoffs/{id}` with `status: filed` now returns 409: record filing on the tax return.
+
 29 October 2026. Existing driver contracts remain unchanged. Staff cannot use driver JWTs to cross account boundaries. The panel reuses the existing user password hashes, revocable device sessions, reset delivery, encryption key ring, rate limits, canonical ledger, receipt confirmation, tax rules and private file scanning. Staff JWTs have a separate audience and token type. Staff membership is provisioned explicitly; driver signup never grants a staff role.
 
 The user requested implementation following backend logic after being asked about missing staff models. Additive models: teams; staff membership referencing the existing authentication identity; one current driver assignment; handoff state linked to an actual consented accountant request; human communications; staff audit events; per-staff saved table views. Staff sign-in uses email and password and immediately creates an audited, revocable staff session; there is no authenticator step. No sample staff, passwords, drivers or financial data are installed.

@@ -12,7 +12,7 @@ from sqlalchemy import func, or_, select
 from app.api.deps import SessionDep, SettingsDep
 from app.core.security import ALGORITHM
 from app.models import DeviceSession, User
-from app.models.books import Profile
+from app.models.books import PrivacyRequest, Profile
 from app.models.common import utc_now
 from app.models.staff import DriverAssignment, StaffAccount, StaffAudit
 from app.services.books import profile, wire
@@ -28,7 +28,8 @@ def identity(db, staff):
 
 
 def add_audit(db, staff, action, driver_id=None, resource_id=None, before=None, after=None):
-    db.add(StaffAudit(actor_id=staff.id, driver_id=driver_id, action=action,
+    # Clock time, not transaction now(): events in one transaction must keep their order.
+    db.add(StaffAudit(actor_id=staff.id, driver_id=driver_id, action=action, created_at=utc_now(),
                       resource_id=resource_id, before=jsonable_encoder(before), after=jsonable_encoder(after)))
 
 
@@ -74,7 +75,9 @@ StaffAuth = Annotated[tuple, Depends(current_staff)]
 
 
 def driver_scope(staff):
-    base = select(User.id).where(~User.id.in_(select(StaffAccount.id)))
+    # Completed deletions stay locked for retention but leave the working directory.
+    base = select(User.id).where(~User.id.in_(select(StaffAccount.id)), ~User.id.in_(select(PrivacyRequest.owner_id).where(
+        PrivacyRequest.kind == "deletion", PrivacyRequest.status == "completed")))
     if staff.role == "accountant":
         base = base.where(User.id.in_(select(DriverAssignment.driver_id).where(DriverAssignment.accountant_id == staff.id)))
     elif staff.role == "senior_accountant":

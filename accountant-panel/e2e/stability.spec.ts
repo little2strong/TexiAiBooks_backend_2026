@@ -33,6 +33,8 @@ test('login, queue, driver and tax stay stable with slow API responses and norma
   await page.getByLabel('Work email').fill('admin-accessibility@browser.example');
   await page.getByLabel('Password', { exact: true }).fill(process.env.PANEL_TEST_PASSWORD!);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await page.getByRole('combobox', { name: 'Workspace tax year' }).click();
+  await page.getByTitle('Tax year 2026-27').click();
   await expect(page.getByText('Browser Driver', { exact: true }).first()).toBeVisible();
   // A fixed quiet observation interval includes late fonts/animations, after the ready assertion.
   await page.waitForTimeout(1200); await checkCLS(page);

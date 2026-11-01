@@ -48,6 +48,8 @@ export function ProtectedWorkspace({ children }: { children: ReactNode }) {
   if (config.isError) return <Result status="error" title="The staff workspace could not load" subTitle={config.error.message}
     extra={<><Button onClick={() => void config.refetch()}>Retry</Button><Button onClick={() => session.end()}>Sign out</Button></>} />;
   if (!config.data.tax_years.length) return <Alert type="error" title="No verified tax years are configured" />;
-  const selected = year || (config.data.tax_years.includes(config.data.current_tax_year) ? config.data.current_tax_year : config.data.tax_years.at(-1)!);
+  // Open on the year with the next filing deadline, which is the work that is actually due.
+  const preferred = [config.data.filing_tax_year, config.data.current_tax_year].find(value => value && config.data.tax_years.includes(value));
+  const selected = year || preferred || config.data.tax_years.at(-1)!;
   return <WorkspaceContext.Provider value={{ config: config.data, year: selected, setYear }}>{children}</WorkspaceContext.Provider>;
 }

@@ -9,6 +9,9 @@ async function login(page: Page, name: string) {
   await page.getByLabel('Password', { exact: true }).fill(process.env.PANEL_TEST_PASSWORD!);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('heading', { name: /^Welcome,/ })).toBeVisible();
+  // The panel opens on the year due next; this synthetic data sits in 2026-27.
+  await page.getByRole('combobox', { name: 'Workspace tax year' }).click();
+  await page.getByTitle('Tax year 2026-27').click();
 }
 
 test('staff login, scoped dashboard, queue, directory and every profile tab', async ({ page }) => {
@@ -118,7 +121,7 @@ test('saved views, CSV, tablet, dark mode and WCAG checks', async ({ page }) => 
   expect(dark.violations.map(item => ({ id: item.id, nodes: item.nodes.map(node => ({ target: node.target, detail: node.failureSummary })) }))).toEqual([]);
 });
 
-test('external filing requires explicit confirmation and preserves the recorded timeline', async ({ page }) => {
+test('a handoff cannot be filed directly; filing goes through the tax return', async ({ page }) => {
   await login(page, 'admin-flow');
   await page.getByRole('link', { name: 'Handoff queue', exact: true }).click();
   await page.getByRole('button', { name: 'Start review', exact: true }).click();
@@ -128,24 +131,15 @@ test('external filing requires explicit confirmation and preserves the recorded 
   await page.getByRole('button', { name: 'Update', exact: true }).click();
   const status = page.getByLabel('Status', { exact: true });
   await status.click();
-  await status.press('ArrowDown');
-  await status.press('ArrowDown');
-  await status.press('Enter');
+  await expect(page.getByTitle('Filed', { exact: true })).toHaveCount(0);
+  await page.getByTitle('Ready To File', { exact: true }).click();
   await page.getByLabel('Reason', { exact: true }).fill('Synthetic supplied evidence reviewed');
   await page.getByRole('button', { name: 'OK', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Record filing', exact: true }).click();
-  await page.getByLabel('Reason', { exact: true }).fill('Synthetic completed external filing');
-  await page.getByLabel('Actual filing reference').fill('SYNTHETIC-EXTERNAL-REF');
-  await page.getByRole('button', { name: 'OK', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: 'Record completed external filing?', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Cancel', exact: true }).last().click();
-  await expect(page.getByRole('dialog')).toHaveCount(1);
-  await page.getByRole('button', { name: 'OK', exact: true }).click();
-  await page.getByRole('button', { name: 'Confirm external filing', exact: true }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  await expect(page.locator('tbody .status-badge')).toHaveText('Filed');
-  await page.getByRole('button', { name: 'History', exact: true }).click();
-  await page.getByText(/^Record audit trail/).click();
-  await expect(page.getByText('Synthetic completed external filing', { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Record filing', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Open tax return', exact: true }).click();
+  await expect(page.getByRole('region', { name: 'Filing checklist' })).toContainText('Tax year has ended');
+  // 2026-27 has not ended, so sign-off stays blocked and the reason is on screen.
+  await expect(page.getByRole('button', { name: 'Send for driver sign-off' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Record external filing' })).toHaveCount(0);
 });

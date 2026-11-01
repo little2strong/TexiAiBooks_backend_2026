@@ -3,7 +3,7 @@ from datetime import timedelta
 
 from sqlalchemy import select
 
-from app.models.books import Notification, Profile
+from app.models.books import DriverDocument, Notification, Profile
 from app.services.books import profile, rows, tax_year
 from app.services.sessions import lock_user
 from app.services.tax import deadlines, today
@@ -30,6 +30,11 @@ def schedule_reminders(factory,as_of=None):
                         if remaining in {0,1,7}:
                             events.append((f"deadline:{deadline['id']}:{day}","reminder.deadline",{
                                 "due_on":str(deadline["due_on"]),"tax_year":target,"days_remaining":remaining}))
+                for document in db.scalars(rows(db,DriverDocument,owner).where(DriverDocument.active.is_(True),DriverDocument.expires_on.is_not(None))):
+                    remaining=(document.expires_on-day).days
+                    if remaining in {30,14,3,0}:
+                        events.append((f"document:{document.id}:{document.expires_on}:{remaining}","reminder.document",{
+                            "doc_type":document.doc_type,"expires_on":str(document.expires_on),"days_remaining":remaining}))
             for key,kind,params in events:
                 previous=db.scalar(rows(db,Notification,owner).where(Notification.params["dedup_key"].astext==key))
                 if previous: continue

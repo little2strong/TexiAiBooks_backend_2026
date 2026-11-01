@@ -1,19 +1,19 @@
 """Accountant access is explicit; driver owner endpoints keep their contracts."""
 import csv
 import io
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, File, HTTPException, Request, Response, UploadFile
 from sqlalchemy import String, func, literal, select, union_all
 
-from app.api import documents, reports, support
+from app.api import documents, reports
 from app.api.deps import CurrentUser, SessionDep, SettingsDep
 from app.api.profiles import Key
 from app.core.security import DUMMY_HASH, password_hash
 from app.models import DeviceSession, User
-from app.models.books import Job, Mileage, Mutation, PrivateFile, Profile, Receipt, SupportRecord, Transaction
+from app.models.books import DriverDocument, Job, Mileage, Mutation, PrivateFile, Profile, Receipt, SupportRecord, Transaction
 from app.models.common import utc_now
 from app.models.staff import AccountantHandoff, DriverAssignment, StaffAccount, StaffAudit, StaffEntry, StaffView
 from app.schemas.books import Confirmation, ReceiptPatch, Reversal, TransactionPatch
@@ -27,7 +27,7 @@ from app.services.ledger import mileage_total, update_transaction
 from app.services.sessions import lock_user
 from app.services.staff import (IDLE_SECONDS, StaffAuth, add_audit, driver_scope,
     driver_search, driver_summary, identity, paginate, query_filters, require_driver, staff_token)
-from app.services.tax import deadlines, estimate, payment_timeline, rule_set, today
+from app.services.tax import deadlines, estimate, filed_return, filing_year, payment_timeline, rule_set, supported_years, today
 from app.services.vault import decrypt
 
 router = APIRouter(prefix="/staff", tags=["staff accountant panel"])
@@ -73,11 +73,10 @@ def me(auth: StaffAuth, db: SessionDep):
 
 
 @router.get("/config")
-def config(auth: StaffAuth, settings: SettingsDep):
-    # The verified registry is authoritative; unsupported years are not offered.
-    years = ["2025-26", "2026-27"]
-    return {"tax_years": [rule_set(year, "england_wales_ni")["tax_year"] for year in years],
-        "current_tax_year": tax_year(today()), "idle_timeout_seconds": IDLE_SECONDS,
+def config(auth: StaffAuth, settings: SettingsDep, db: SessionDep):
+    # Verified registry plus fully activated managed years; unsupported years are not offered.
+    return {"tax_years": supported_years(db),
+        "current_tax_year": tax_year(today()), "filing_tax_year": filing_year(), "idle_timeout_seconds": IDLE_SECONDS,
         "upload_max_bytes": settings.upload_max_bytes,
         "categories": list(CATEGORIES.values()), "sources": list(SOURCES.values())}
 
@@ -211,6 +210,11 @@ def assign(data: AssignmentInput, auth: StaffAuth, db: SessionDep, request: Requ
             require_driver(db, staff, row.driver_id)
             db.refresh(row)
             check_version(row, data.versions.get(str(row.id)))
+            access = profile(db, row.driver_id, "accountant_access")
+            revoked_at = access.data.get("revoked_at") if access else None
+            # A revocation stands until the driver asks for an accountant again.
+            if revoked_at and db.get(SupportRecord, row.id).created_at <= datetime.fromisoformat(revoked_at):
+                raise HTTPException(409, "This driver revoked accountant access; a new request from the driver is required")
         for driver_id in sorted({row.driver_id for row in selected}):
             row = next(item for item in selected if item.driver_id == driver_id)
             assignment = db.get(DriverAssignment, row.driver_id, populate_existing=True)
@@ -243,8 +247,11 @@ def update_handoff(id: UUID, data: HandoffPatch, auth: StaffAuth, db: SessionDep
         check_version(row, data.expected_version)
         if (data.status == "filed" or row.status == "filed") and staff.role not in {"admin", "senior_accountant"}:
             raise HTTPException(403, "Filing sign-off requires a senior accountant")
-        if data.status == "filed" and (row.status != "ready_to_file" or not data.filing_reference):
-            raise HTTPException(422, "Ready-to-file review and actual external filing reference required")
+        if data.status == "filed" and row.status != "filed":
+            # Driver sign-off lives on the return, so filing is recorded only there.
+            raise HTTPException(409, "Record filing from the tax return, after the driver has signed off")
+        if row.status == "filed" and row.tax_year and filed_return(db, row.driver_id, row.tax_year):
+            raise HTTPException(409, "Reopen the filed tax return before changing this handoff")
         before = wire(row)
         row.status, row.filing_reference = data.status, data.filing_reference
         row.version += 1
@@ -285,7 +292,7 @@ def overview(driver_id: UUID, data: YearInput, auth: StaffAuth, db: SessionDep):
     result = {**driver_summary(db, user), "tax_year": data.tax_year,
         "utr_masked": tax.data.get("utr_masked") if tax else None,
         "ni_masked": tax.data.get("ni_masked") if tax else None,
-        "driver_profile": driver.data if driver else {}, "subscription": support.subscription(user, db),
+        "driver_profile": driver.data if driver else {},
         "totals": reports.dashboard_response(db, driver_id, data.tax_year),
         "handoffs": [handoff_wire(db, item) for item in db.scalars(select(AccountantHandoff).where(
             AccountantHandoff.driver_id == driver_id,
@@ -299,7 +306,8 @@ def driver_table(db, staff, driver_id, resource, data):
     allowed = {"income": {"tax_year", "review_status", "claim_status", "source_id"},
         "expenses": {"tax_year", "review_status", "claim_status", "category_id"},
         "receipts": {"tax_year", "review_status", "claim_status"}, "mileage": {"tax_year", "vehicle_id"},
-        "documents": {"scan_status", "mime_type"}, "messages": set(), "notes": {"kind"}, "activity": {"action", "resource_id"}}
+        "documents": {"scan_status", "mime_type"}, "messages": set(), "notes": {"kind"}, "activity": {"action", "resource_id"},
+        "compliance": {"doc_type"}}
     if resource not in allowed:
         raise HTTPException(404, "Unsupported driver resource")
     query_filters(data, allowed[resource])
@@ -339,6 +347,14 @@ def driver_table(db, staff, driver_id, resource, data):
         result = paginate(db, query, Mileage, data, {"created_at": Mileage.created_at,
             "occurred_on": Mileage.occurred_on, "business_miles": Mileage.business_miles})
         return {**result, "summary": mileage_total(db, driver_id, year)}
+    if resource == "compliance":
+        from app.api.driver_tools import document_wire
+        query = rows(db, DriverDocument, driver_id).where(DriverDocument.active.is_(True))
+        if data.filters.get("doc_type"):
+            query = query.where(DriverDocument.doc_type == data.filters["doc_type"])
+        if data.search:
+            query = query.where(DriverDocument.reference.ilike("%" + data.search.replace("%", "\\%") + "%"))
+        return paginate(db, query, DriverDocument, data, {"created_at": DriverDocument.created_at, "expires_on": DriverDocument.expires_on}, document_wire)
     if resource == "documents":
         query = rows(db, PrivateFile, driver_id)
         for field in ("scan_status", "mime_type"):
@@ -410,7 +426,7 @@ def tax(driver_id: UUID, data: YearInput, auth: StaffAuth, db: SessionDep):
     require_driver(db, auth[0], driver_id)
     lock_user(db, driver_id)
     context = profile(db, driver_id, "tax", data.tax_year)
-    rules = rule_set(data.tax_year, context.data["region"] if context else "england_wales_ni")
+    rules = rule_set(data.tax_year, context.data["region"] if context else "england_wales_ni", db)
     try:
         calculation = estimate(db, driver_id, data.tax_year)
     except HTTPException as error:

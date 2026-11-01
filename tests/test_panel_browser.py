@@ -53,7 +53,7 @@ def test_live_panel_browser(postgres_engine, settings):
         owner = driver.id
         db.add(Profile(owner_id=owner, kind="me", data={"first_name": "Browser", "last_name": "Driver", "preferences": {"locale": "en", "timezone": "Europe/London"}}))
         db.add(Profile(owner_id=owner, kind="tax", scope="2026-27", data={"region": "england_wales_ni", "has_paye_job": False, "employments": [], "utr_masked": "******7890", "ni_masked": "*****456C"}, identifiers=encrypt(settings, {"utr": "1234567890", "ni_number": "AB123456C"})))
-        for name, role in [("admin-flow", "admin"), ("accountant-receipt", "accountant"), ("support-flow", "support"), ("admin-accessibility", "admin")]:
+        for name, role in [("admin-flow", "admin"), ("accountant-receipt", "accountant"), ("support-flow", "support"), ("admin-accessibility", "admin"), ("admin-screens", "admin"), ("admin-returns", "admin")]:
             user = User(email=f"{name}@browser.example", password_hash=password_hash.hash(password), display_name=name)
             db.add(user); db.flush()
             db.add(StaffAccount(id=user.id, name=name, role=role, team_id=team.id))

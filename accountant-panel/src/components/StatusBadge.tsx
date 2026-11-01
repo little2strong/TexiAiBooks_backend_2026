@@ -5,8 +5,11 @@ import { label } from '../lib/format';
 const colors: Record<string, string> = {
   new: 'info', in_review: 'review', waiting_on_driver: 'warning', ready_to_file: 'ready', filed: 'filed',
   draft: 'warning', pending: 'warning', confirmed: 'income', reversed: 'neutral', clean: 'income', generated: 'income',
-  claimable: 'income', excluded: 'expense', personal: 'neutral', failed: 'expense', trialing: 'info', active: 'income',
-  rejected: 'expense', overdue: 'expense',
+  claimable: 'income', excluded: 'expense', personal: 'neutral', failed: 'expense', active: 'income',
+  rejected: 'expense', overdue: 'expense', in_preparation: 'review', awaiting_driver: 'warning', driver_approved: 'ready', approved: 'ready',
+  retired: 'neutral', received: 'info', in_progress: 'review', completed: 'income', accepted: 'income', corrected: 'warning', valid: 'income',
+  expiring_soon: 'warning', expired: 'expense', no_expiry: 'neutral', mandated: 'warning', upcoming: 'info', not_required: 'neutral', voluntary: 'info',
+  exit_eligible: 'ready', exempt: 'neutral', ceased: 'neutral', inactive: 'neutral', below: 'income', approaching: 'warning', over: 'expense',
 };
 export function StatusBadge({ status }: { status: string }) {
   const explanation = statusGlossary[status];

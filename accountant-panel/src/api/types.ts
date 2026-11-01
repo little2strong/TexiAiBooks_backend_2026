@@ -49,6 +49,7 @@ export interface Handoff {
 export interface Config {
   tax_years: string[];
   current_tax_year: string;
+  filing_tax_year?: string;
   idle_timeout_seconds: number;
   upload_max_bytes: number;
   categories: { id: string; code: string; requires_vehicle: boolean }[];
@@ -86,7 +87,6 @@ export interface Overview extends Driver {
     council_code?: string;
     work_pattern?: string;
   };
-  subscription: { status: string; plan_id?: string; renew_at?: string };
   totals: Totals;
 }
 export interface Transaction {
@@ -176,6 +176,7 @@ export interface TaxRule {
   value: Record<string, unknown>;
   official_url: string;
   verified_at: string;
+  managed?: boolean;
 }
 export interface TaxResult {
   calculationContext?: Record<string, unknown>;
@@ -190,6 +191,13 @@ export interface TaxResult {
     as_of?: string;
     available?: boolean;
     reason?: string;
+    class2_status?: string;
+    class2_weekly_rate_pence?: number | null;
+    class2_small_profits_threshold_pence?: number | null;
+    frozen?: boolean;
+    adjustment_income_pence?: number;
+    adjustment_expenses_pence?: number;
+    adjustment_capital_allowances_pence?: number;
     total_pence?: number;
     income_tax_pence?: number;
     class4_pence?: number;
@@ -230,6 +238,138 @@ export interface StaffLoginResult {
   access_token: string;
   expires_in: number;
   staff: Staff;
+}
+export type ReturnStatus = "in_preparation" | "awaiting_driver" | "driver_approved" | "filed";
+export interface TaxReturnRow {
+  id: string;
+  driver_id: string;
+  driver_name: string;
+  driver_email: string | null;
+  accountant_name: string | null;
+  tax_year: string;
+  status: ReturnStatus;
+  version: number;
+  review_version: number;
+  filing_reference: string | null;
+  filed_at: string | null;
+  filed_by_name: string | null;
+  driver_decided_at: string | null;
+  driver_note: string | null;
+  created_at: string;
+}
+export interface TaxAdjustment {
+  id: string;
+  target: "income" | "expenses" | "capital_allowances";
+  amount_pence: number;
+  reason: string;
+  created_by_name: string | null;
+  created_at: string;
+  voided_at: string | null;
+  void_reason: string | null;
+}
+export interface ChecklistItem {
+  id: string;
+  label: string;
+  status: "pass" | "warn" | "block";
+  detail: string;
+  tab: string | null;
+}
+export interface TaxReturnDetail extends TaxReturnRow {
+  checklist: ChecklistItem[];
+  blockers: number;
+  adjustments: TaxAdjustment[];
+  estimate: TaxResult["estimate"];
+  snapshot: Record<string, unknown> | null;
+  earlier_snapshots: Record<string, unknown>[];
+  events: AuditEvent[];
+}
+export interface AiReviewRow {
+  id: string;
+  driver_id: string;
+  driver_name: string;
+  created_at: string;
+  version: number;
+  review_status: string;
+  merchant?: string | null;
+  amount_pence?: number | null;
+  occurred_on?: string | null;
+  suggested_category: string | null;
+  confidence?: number | string | Record<string, number> | null;
+  warnings: string[];
+  feedback_verdict: string | null;
+  feedback_by: string | null;
+  feedback_reason: string | null;
+}
+export interface AiSummary {
+  extractions: number;
+  reviewed: number;
+  open: number;
+  accepted: number;
+  corrected: number;
+  rejected: number;
+  acceptance_percent: number | null;
+}
+export interface StaffRow extends Staff {
+  active: boolean;
+  version: number;
+  team_name: string | null;
+  last_seen_at: string | null;
+  assigned_drivers: number;
+}
+export interface RateRow {
+  id: string;
+  tax_year: string;
+  region: string;
+  code: string;
+  value: Record<string, unknown>;
+  status: "draft" | "approved" | "active" | "retired";
+  official_url: string;
+  reason: string;
+  version: number;
+  created_by_name: string | null;
+  approved_by_name: string | null;
+  created_at: string;
+  activated_at: string | null;
+}
+export interface PrivacyRow {
+  id: string;
+  driver_id: string;
+  driver_name: string;
+  driver_email: string | null;
+  kind: "export" | "access" | "correction" | "deletion";
+  status: "received" | "in_progress" | "completed" | "rejected";
+  detail: string | null;
+  due_on: string;
+  retain_until: string | null;
+  resolution: string | null;
+  handled_by_name: string | null;
+  overdue: boolean;
+  version: number;
+  created_at: string;
+  completed_at: string | null;
+}
+export interface ComplianceRow {
+  id: string;
+  doc_type: string;
+  reference: string | null;
+  expires_on: string | null;
+  days_remaining: number | null;
+  expiry_status: string;
+  created_at: string;
+}
+export interface MtdView {
+  status: string;
+  start_date: string | null;
+  confidence: string | null;
+  reason: string;
+  years_below_count: number;
+  threshold_pence: number | null;
+  qualifying_income_pence: number | null;
+  test_year: string | null;
+  near_threshold: boolean;
+  history: { tax_year: string; gross_se_income_pence: number; gross_property_income_pence?: number; paye_income_pence?: number; source: string }[];
+  vat: { rolling_turnover_pence: number; threshold_pence: number; percent_of_threshold: number; status: string; note: string };
+  platform: Record<string, { source: string; app_gross_pence: number; platform_reported_gross_pence: number | null; difference_pence: number | null; status: string; dispute_note: string | null }[]>;
 }
 export type DriverResource =
   | "income"

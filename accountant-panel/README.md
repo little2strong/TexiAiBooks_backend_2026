@@ -1,6 +1,6 @@
 # TaxiAiBooks accountant workspace
 
-Separate React + TypeScript + Vite application using headless Refine, Ant Design and TanStack Table. Implements the requested **screens 1–4**: email/password login and recovery, scoped dashboard, handoff queue with bulk assignment, driver directory and Driver 360 with all requested tabs. Screens 5–7 intentionally stop at this delivery boundary.
+Separate React + TypeScript + Vite application using headless Refine, Ant Design and TanStack Table. Covers email/password login and recovery, scoped dashboard, handoff queue with bulk assignment, driver directory, Driver 360, tax return workspace, AI review and administration (users and roles, tax rates, privacy requests, audit log). This version has no payment system.
 
 ## Run locally
 
@@ -52,10 +52,10 @@ The optional panel container serves **http://127.0.0.1:8080** and proxies `/api/
 src/api/          Typed DTOs, fetch client, Refine data/auth providers
 src/auth/         In-memory session, permissions, workspace/idle handling
 src/components/   DataTable, StatusBadge, ReceiptViewer, AuditTimeline, RoleGuard
-src/pages/        Login, Dashboard, Handoffs, Drivers, DriverProfile
+src/pages/        Login, Dashboard, Handoffs, Drivers, DriverProfile, Returns, AiReview, Admin
 src/lib/          GBP/date formatting only; no tax arithmetic
 e2e/              Live browser checks against disposable PostgreSQL
-../app/api/staff.py       Staff API over the canonical backend
+../app/api/staff.py, returns.py, staff_admin.py  Staff API over the canonical backend
 ../scripts/provision_staff.py  Explicit operator enrollment
 ```
 
@@ -69,15 +69,7 @@ Human messages are stored in a separate accountant thread; notes/tickets are int
 
 The additive endpoint table, exact requests/responses and role rules were listed before implementation in [ACCOUNTANT_PANEL_CONTRACTS.md](../docs/ACCOUNTANT_PANEL_CONTRACTS.md). Exact schemas are in [openapi.json](../docs/openapi.json). Existing driver APIs stay compatible; `tax_year` is an optional addition to accountant requests, and two human-message endpoints are additive. Old requests with no export/year show **Year not supplied** and do not imply a filing deadline.
 
-| Deferred endpoint group | Example method/path | Request | Expected response | Status |
-| --- | --- | --- | --- | --- |
-| Tax workspace/checklist | `GET /staff/returns/{id}` | Return ID | Checklist, immutable review version, adjustments, sign-off | Screen 5, model to agree |
-| AI review/feedback | `POST /staff/ai-reviews/{id}/feedback` | Review version, correction, reason | Audited feedback | Screen 6, model to agree |
-| Staff/users/roles | `PATCH /staff/users/{id}` | Expected version, approved role/team changes | Updated membership | Screen 7 |
-| Admin configuration | `PATCH /staff/settings/{key}` | Versioned approved configuration | Audited settings | Screen 7; rates/catalog currently existing backend registry |
-| GDPR requests | `POST /staff/privacy-requests` | Driver ID, export/deletion kind, reason | Retention/legal-hold-aware request | Screen 7, policy to agree |
-
-No final tax filing or billing action is introduced. Marking a handoff Filed records an actual external reference and requires senior/admin review; it does not send anything to HMRC. Production provider setup, retention/deletion policy and broader tax limitations remain as documented by the existing backend.
+No final tax filing is introduced. Filing is recorded on the tax return with an external reference, after driver sign-off and by a senior accountant or admin; it does not send anything to HMRC. Production provider setup, retention/deletion policy and broader tax limitations remain as documented by the existing backend.
 
 ## Verify
 

@@ -252,7 +252,7 @@ def test_table_paging_saved_views_private_csv_and_tax_no_profile(client, panel, 
     assert csv.headers["cache-control"] == "no-store"
 
 
-def test_filed_requires_senior_ready_state_and_real_reference(client, panel, db_session):
+def test_handoff_cannot_record_filing_without_the_tax_return(client, panel, db_session):
     members, owner, _ = panel
     request = SupportRecord(owner_id=owner, kind="accountant_request", data={"kind": "filing_question"})
     db_session.add(request); db_session.flush()
@@ -261,16 +261,15 @@ def test_filed_requires_senior_ready_state_and_real_reference(client, panel, db_
     path = f"/api/v1/staff/handoffs/{handoff.id}"
     payload = {"expected_version": 1, "status": "filed", "reason": "External filing", "filing_reference": "synthetic-reference"}
     assert client.patch(path, headers=mutation(members["accountant"][1]), json=payload).status_code == 403
-    assert client.patch(path, headers=mutation(members["senior_accountant"][1]), json=payload).status_code == 422
+    # Driver sign-off lives on the return, so a handoff alone can never reach Filed.
+    assert client.patch(path, headers=mutation(members["senior_accountant"][1]), json=payload).status_code == 409
     ready = client.patch(path, headers=mutation(members["accountant"][1]), json={"expected_version": 1, "status": "ready_to_file", "reason": "Reviewed all supplied evidence"})
     assert ready.status_code == 200, ready.text
-    filed = client.patch(path, headers=mutation(members["senior_accountant"][1]), json={**payload, "expected_version": 2})
-    assert filed.status_code == 200, filed.text
-    assert filed.json()["filing_reference"] == "synthetic-reference"
-    assert {event["after"]["status"] for event in filed.json()["workflow_events"] if event["action"] == "handoff_updated"} == {"ready_to_file", "filed"}
-    assert all(event["actor_name"] and event["created_at"] for event in filed.json()["workflow_events"])
+    assert client.patch(path, headers=mutation(members["senior_accountant"][1]), json={**payload, "expected_version": 2}).status_code == 409
+    assert {event["after"]["status"] for event in ready.json()["workflow_events"] if event["action"] == "handoff_updated"} == {"ready_to_file"}
+    assert all(event["actor_name"] and event["created_at"] for event in ready.json()["workflow_events"])
     overview = client.post(f"/api/v1/staff/drivers/{owner}/overview", headers=members["accountant"][1], json={"tax_year": "2026-27"})
-    assert overview.json()["handoffs"][0]["status"] == "filed"
+    assert overview.json()["handoffs"][0]["status"] == "ready_to_file"
     request_id = str(uuid4())
     response = client.post(path, headers={**members["support"][1], "X-Request-ID": request_id}, json={})
     assert response.headers["X-Request-ID"] == request_id
