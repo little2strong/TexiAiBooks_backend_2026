@@ -8,7 +8,7 @@ export function AiIndicator({ reviewed = false, reviewerName }: { reviewed?: boo
       ) : (
         <Sparkles aria-hidden="true" />
       )}
-      {reviewed ? reviewerName ? `Reviewed by ${reviewerName}` : 'Reviewed · reviewer not recorded' : "AI suggested"}
+      {reviewed ? reviewerName ? `Reviewed by ${reviewerName}` : 'Reviewed' : "AI suggested"}
     </span>
   );
 }

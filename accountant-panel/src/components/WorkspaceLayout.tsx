@@ -12,7 +12,6 @@ import { initialQuery } from '../api/types';
 import { initials, label } from '../lib/format';
 import { DataTable } from './DataTable';
 import { ThemeToggle } from './ThemeToggle';
-import { Palette } from 'lucide-react';
 import type { InputRef } from 'antd';
 
 const sections: [string, string][] = [['/returns', 'Tax returns'], ['/ai-review', 'AI review'], ['/handoffs', 'Handoff queue'], ['/drivers', 'Driver directory'],
@@ -51,8 +50,7 @@ export function WorkspaceLayout() {
         <NavLink to="/handoffs" aria-label="Handoff queue"><ClipboardCheck aria-hidden="true" /><span>Handoff queue</span></NavLink>
         <NavLink to="/returns" aria-label="Tax returns"><FileCheck2 aria-hidden="true" /><span>Tax returns</span></NavLink>
         <NavLink to="/ai-review" aria-label="AI review"><Sparkles aria-hidden="true" /><span>AI review</span></NavLink>
-        <NavLink to="/drivers" aria-label="Driver directory"><Car aria-hidden="true" /><span>Driver directory</span></NavLink>
-        {import.meta.env.DEV && <NavLink to="/styleguide" aria-label="Styleguide"><Palette aria-hidden="true" /><span>Styleguide</span></NavLink>}</nav>
+        <NavLink to="/drivers" aria-label="Driver directory"><Car aria-hidden="true" /><span>Driver directory</span></NavLink></nav>
       {can(active.staff.role, 'admin') && <><div className="practice-label workspace-nav-label">ADMINISTRATION</div>
         <nav aria-label="Administration"><NavLink to="/admin/users" aria-label="Users and roles"><Users aria-hidden="true" /><span>Users & roles</span></NavLink>
           <NavLink to="/admin/rates" aria-label="Tax rates"><Percent aria-hidden="true" /><span>Tax rates</span></NavLink>

@@ -22,6 +22,14 @@ import { StatusBadge } from '../components/StatusBadge';
 import { date, datetime, initials, label, money } from '../lib/format';
 import { AiIndicator, ConfidenceBar } from '../components/AiIndicator';
 
+const plainLimits: Record<string, string> = {
+  estimate_not_assessed_liability: 'This is an estimate, not a bill from HMRC.',
+  NI_assumes_working_age_no_special_exemptions: 'National Insurance assumes working age and no special exemptions.',
+  pension_Gift_Aid_losses_and_other_reliefs_not_modelled: 'Pension, Gift Aid, losses and other reliefs are not included.',
+  PAYE_and_Class4_annual_maximum_not_modelled: 'The annual maximum across PAYE and Class 4 is not applied.',
+};
+const fileTypes: Record<string, string> = { 'application/pdf': 'PDF', 'image/png': 'PNG image', 'image/jpeg': 'JPEG image', 'text/csv': 'CSV file', 'application/zip': 'ZIP file' };
+
 function RevealField({ driverId, field, masked }: { driverId: string; field: 'utr' | 'ni_number'; masked: string | null }) {
   const { year } = useWorkspace();
   const [revealed, setRevealed] = useState<string | null>(null);
@@ -63,7 +71,7 @@ function OverviewTab({ data }: { data: Overview }) {
     { key: 'licence', label: 'Licence', children: data.driver_profile.licence_type ? label(data.driver_profile.licence_type) : 'Not supplied' },
     { key: 'council', label: 'Council code', children: data.driver_profile.council_code || 'Not supplied' },
     { key: 'work', label: 'Work pattern', children: data.driver_profile.work_pattern ? label(data.driver_profile.work_pattern) : 'Not supplied' },
-  ]} /><Alert type="info" title="Bank details are not collected by this backend" description="No bank details are inferred from uploaded evidence." /></section></div>;
+  ]} /></section></div>;
 }
 
 function LedgerTab({ driverId, kind }: { driverId: string; kind: 'income' | 'expenses' }) {
@@ -82,10 +90,10 @@ function LedgerTab({ driverId, kind }: { driverId: string; kind: 'income' | 'exp
     { accessorKey: 'occurred_on', header: 'Date', cell: ({ row }) => date(row.original.occurred_on) },
     { accessorKey: 'description', header: kind === 'income' ? 'Earnings' : 'Expense', enableSorting: false, cell: ({ row }) => <div className="record-description"><strong>{row.original.description || 'Description not supplied'}</strong><small>{kind === 'income' ? row.original.source_name || 'Source not supplied' : row.original.category_name}</small></div> },
     { accessorKey: 'amount_pence', header: 'Amount', cell: ({ row }) => <span className="money-cell" data-negative={row.original.amount_pence < 0}>{money(row.original.amount_pence)}</span> },
-    ...(kind === 'expenses' ? [{ id: 'deductible', header: 'Deductible', enableSorting: false, cell: ({ row }: { row: { original: Transaction } }) => <span className="money-cell">{money(row.original.deductible_pence)}<ExplainNumber name="Deductible expenses" year={year}><p>Full amount {money(row.original.amount_pence)}; reviewed business share {row.original.business_use_percent}%; server deduction {money(row.original.deductible_pence)}.</p><p>Eligibility reasons: {row.original.eligibility_reason_codes.join('; ') || 'None supplied'}. Source: ledger API; includes no separate mileage claim in this row.</p></ExplainNumber><small className="cell-small">{row.original.business_use_percent}% business</small></span> } as ColumnDef<Transaction>] : []),
+    ...(kind === 'expenses' ? [{ id: 'deductible', header: 'Deductible', enableSorting: false, cell: ({ row }: { row: { original: Transaction } }) => <span className="money-cell">{money(row.original.deductible_pence)}<ExplainNumber name="Deductible expenses" year={year}><p>Full amount {money(row.original.amount_pence)}; reviewed business share {row.original.business_use_percent}%; server deduction {money(row.original.deductible_pence)}.</p><p>Eligibility reasons: {row.original.eligibility_reason_codes.join('; ') || 'None supplied'}. Source: ledger API; includes no separate mileage claim in this row.</p></ExplainNumber><small className="cell-small">{row.original.eligibility_reason_codes.length ? label(row.original.eligibility_reason_codes[0]) : `${row.original.business_use_percent}% business`}</small></span> } as ColumnDef<Transaction>] : []),
     { accessorKey: 'review_status', header: 'Review', cell: ({ row }) => <StatusBadge status={row.original.review_status} /> },
-    ...(kind === 'expenses' ? [{ id: 'ai', header: 'AI suggestion', enableSorting: false, cell: ({ row }: { row: { original: Transaction } }) => row.original.review_status === 'confirmed' ? <AiIndicator reviewed reviewerName={row.original.reviewerName} /> : row.original.ai_category ? <Tooltip title={row.original.ai_reason?.join('; ') || 'No explanation supplied by OCR'}><div><AiIndicator /><small className="cell-small">{label(config.categories.find(c => c.id === row.original.ai_category)?.code || 'Category supplied')}</small><ConfidenceBar confidence={row.original.ai_confidence} /></div></Tooltip> : <span className="muted">No suggestion</span> } as ColumnDef<Transaction>] : []),
-    { id: 'evidence', header: 'Evidence / review', enableSorting: false, cell: ({ row }) => <Space>{row.original.receipt_id ? <Button size="small" icon={<FileImage />} onClick={() => setReceipt(row.original.receipt_id)}>Receipt</Button> : <span className="muted">No receipt</span>}
+    ...(kind === 'expenses' ? [{ id: 'ai', header: 'AI', enableSorting: false, cell: ({ row }: { row: { original: Transaction } }) => !row.original.receipt_id && !row.original.ai_category ? <span className="muted">Entered by hand</span> : row.original.review_status === 'confirmed' ? <AiIndicator reviewed reviewerName={row.original.reviewerName} /> : row.original.ai_category ? <Tooltip title={row.original.ai_reason?.join('; ') || 'No explanation supplied by OCR'}><div><AiIndicator /><small className="cell-small">{label(config.categories.find(c => c.id === row.original.ai_category)?.code || 'Category supplied')}</small><ConfidenceBar confidence={row.original.ai_confidence} /></div></Tooltip> : <span className="muted">No suggestion</span> } as ColumnDef<Transaction>] : []),
+    { id: 'evidence', header: 'Evidence / review', enableSorting: false, cell: ({ row }) => <Space wrap size="small">{row.original.receipt_id ? <Button size="small" icon={<FileImage />} onClick={() => setReceipt(row.original.receipt_id)}>Receipt</Button> : <span className="muted">No receipt</span>}
       <RecordAudit driverId={driverId} recordId={row.original.receipt_id || row.original.id} />{kind === 'expenses' && !row.original.receipt_id && !row.original.import_origin_key && row.original.review_status !== 'reversed' && <RoleGuard action="edit"><Button size="small" onClick={() => { setEditing(row.original); form.setFieldsValue({ category_id: row.original.category_id }); }}>Recategorise</Button></RoleGuard>}</Space> },
   ], [kind, config.categories, form, driverId, year]);
   const recategorise = async (values: { category_id: string }) => {
@@ -134,8 +142,8 @@ function ReceiptQueue({ driverId }: { driverId: string }) {
   </>;
 }
 
-function ExpenseTabs({ driverId }: { driverId: string }) {
-  return <Tabs destroyOnHidden items={[{ key: 'ledger', label: 'Expense ledger', children: <LedgerTab driverId={driverId} kind="expenses" /> },
+function ExpenseTabs({ driverId, view }: { driverId: string; view: string }) {
+  return <Tabs destroyOnHidden defaultActiveKey={view} items={[{ key: 'ledger', label: 'Expense ledger', children: <LedgerTab driverId={driverId} kind="expenses" /> },
     { key: 'receipts', label: 'Receipt review queue', children: <ReceiptQueue driverId={driverId} /> }]} />;
 }
 
@@ -143,10 +151,14 @@ export function TaxTab({ driverId, mileageOnly = false }: { driverId: string; mi
   const { year } = useWorkspace();
   const result = useQuery({ queryKey: ['tax', driverId, year], queryFn: ({ signal }) => api.tax(driverId, year, signal) });
   const overview = useQuery({ queryKey: ['overview', driverId, year], queryFn: ({ signal }) => api.overview(driverId, year, signal), enabled: !mileageOnly });
-  return <QueryState layout={mileageOnly ? 'panel' : 'tax'} pending={result.isPending} error={result.error} retry={result.refetch} empty={mileageOnly && result.isSuccess && !result.data.rules.rules.some(rule => rule.code === 'mileage')} emptyMessage="No mileage rates were supplied for this tax year. Refresh or ask an administrator.">{result.data && <>
+  return <QueryState layout={mileageOnly ? 'stats' : 'tax'} pending={result.isPending} error={result.error} retry={result.refetch} empty={mileageOnly && result.isSuccess && !result.data.rules.rules.some(rule => rule.code === 'mileage')} emptyMessage="No mileage rates were supplied for this tax year. Refresh or ask an administrator.">{result.data && <>
     {mileageOnly ? <section className="surface profile-card section-gap"><h2>Verified mileage rules · {year}</h2>{result.data.rules.rules.filter(rule => rule.code === 'mileage').map(rule => <div key={rule.code}>
-      <Descriptions column={{ xs: 1, md: 3 }} items={Object.entries(rule.value).map(([key, value]) => ({ key, label: label(key), children: String(value) }))} />
-      <a href={rule.official_url} target="_blank" rel="noreferrer">HMRC source ↗</a><small className="muted"> · Verified {date(rule.verified_at)} · Per-vehicle eligibility is enforced by the backend.</small></div>)}</section> : <>
+      <Descriptions column={{ xs: 1, md: 3 }} items={[
+        { key: 'first', label: `First ${Number(rule.value.first_band_miles).toLocaleString()} miles`, children: `${String(rule.value.first_rate_pence)}p a mile` },
+        { key: 'rest', label: 'After that', children: `${String(rule.value.remaining_rate_pence)}p a mile` },
+        { key: 'bike', label: 'Motorcycles', children: `${String(rule.value.motorcycle_rate_pence)}p a mile` },
+      ]} />
+      <a href={rule.official_url} target="_blank" rel="noreferrer">HMRC source ↗</a><small className="muted"> · Verified {date(rule.verified_at)} · The first-band limit applies per person, across all simplified-mileage vehicles.</small></div>)}</section> : <>
       <Alert type="info" showIcon title="Estimate for review — not an assessed bill or completed tax return" description="Figures follow the selected tax-year rules. Review missing inputs and unsupported tax circumstances before relying on this estimate." className="section-gap" />
       {result.data.estimate.available === false ? <Alert type="warning" title="Tax estimate unavailable" description={result.data.estimate.reason} className="section-gap" /> :
         <><div className="stat-grid profile-stats section-gap">{[['Estimated liability', result.data.estimate.total_pence], ['Income tax', result.data.estimate.income_tax_pence], ['Class 4 NI', result.data.estimate.class4_pence], ['Personal allowance', result.data.estimate.personal_allowance_pence]].map(([name, value]) => <div className="surface stat-card" key={String(name)}><span className="number-label">{name}<TaxExplanation name={String(name)} year={year} result={result.data!} /></span><strong>{money(value as number | undefined)}</strong></div>)}</div>
@@ -156,7 +168,7 @@ export function TaxTab({ driverId, mileageOnly = false }: { driverId: string; mi
       <QueryState pending={overview.isPending} error={overview.error} retry={overview.refetch}>{overview.data && <WorkflowPanel data={overview.data} tax />}</QueryState>
       <div className="profile-overview-grid"><section className="surface profile-card"><h2>Payment timeline</h2>{result.data.payments.items.length ? result.data.payments.items.map(item => <div className="payment-row" key={item.id}><span>{date(item.due_on)}<small>{label(item.label_key.replace(/^deadline\./, ''))}</small></span><strong>{item.amount_pence == null ? 'Amount not assessed' : money(item.amount_pence)}<ExplainNumber name="Payment amount" year={year} sources={result.data!.rules.rules.filter(rule => rule.code === 'poa').map(rule => <p key={rule.code}><a href={rule.official_url} target="_blank" rel="noreferrer">Payment rules source ↗</a> Not needed when the last bill was under {money(rule.value.minimum_bill_pence as number)}, or when over {String(rule.value.outside_sa_exemption_percent)}% of tax was collected at source.</p>)}><dl className="breakdown">{Object.entries(result.data!.payments).filter(([key]) => key.endsWith('_pence')).map(([key, value]) => <div key={key}><dt>{label(key.replace('_pence', ''))}</dt><dd>{money(value as number | null)}</dd></div>)}</dl><p>Source: payment timeline API, supplied prior assessment and current-pace projection; due {date(item.due_on)}.</p></ExplainNumber></strong></div>) : <Empty description="No payment dates supplied" />}
         {(result.data.payments.warnings || []).map(warning => <Alert key={warning} type="warning" title={warning} className="form-alert" />)}</section>
-        <section className="surface profile-card"><h2>Assumptions & limitations</h2><ul className="assumption-list">{[...new Set([...(result.data.estimate.warnings || []), ...(result.data.estimate.assumptions || [])])].map(text => <li key={text}>{text.replaceAll('_', ' ')}</li>)}</ul><p className="muted">Rule set {result.data.rules.version}</p>
+        <section className="surface profile-card"><h2>Assumptions & limitations</h2><ul className="assumption-list">{[...new Set([...(result.data.estimate.warnings || []), ...(result.data.estimate.assumptions || [])])].map(text => <li key={text}>{plainLimits[text] || text.replaceAll('_', ' ')}</li>)}</ul><p className="muted">Rule set {result.data.rules.version}</p>
           <Space wrap>{result.data.rules.rules.map(rule => <a key={rule.code} href={rule.official_url} target="_blank" rel="noreferrer">{label(rule.code)} ↗</a>)}</Space></section></div>
     </>}
   </>}</QueryState>;
@@ -176,7 +188,7 @@ function MileageTab({ driverId }: { driverId: string }) {
     { id: 'audit', header: 'History', enableSorting: false, cell: ({ row }) => <RecordAudit driverId={driverId} recordId={row.original.id} /> },
     { id: 'odometer', header: 'Odometer evidence', enableSorting: false, cell: ({ row }) => row.original.start_odometer && row.original.end_odometer ? `${row.original.start_odometer} → ${row.original.end_odometer}` : 'Not supplied' },
   ], []);
-  return <><div className="inline-stats section-gap"><span><strong>{summary?.business_miles ?? '—'}</strong> recorded business miles<ExplainNumber name="Business miles" year={year} /></span><span><strong>{money(summary?.deduction_pence)}</strong> eligible mileage deduction<ExplainNumber name="Mileage deduction" year={year}><p>{summary?.business_miles ?? '—'} recorded miles; deduction {money(summary?.deduction_pence)}. Source: mileage summary API. Per-vehicle logs and effective elections determine eligibility; the summary is not filtered by table search.</p><p>Rates and official references for this year are displayed in Verified mileage rules below.</p></ExplainNumber></span></div>
+  return <><div className="inline-stats section-gap"><span><strong>{summary ? Number(summary.business_miles).toLocaleString() : '—'}</strong> recorded business miles<ExplainNumber name="Business miles" year={year} /></span><span><strong>{money(summary?.deduction_pence)}</strong> eligible mileage deduction<ExplainNumber name="Mileage deduction" year={year}><p>{summary?.business_miles ?? '—'} recorded miles; deduction {money(summary?.deduction_pence)}. Source: mileage summary API. Per-vehicle logs and effective elections determine eligibility; the summary is not filtered by table search.</p><p>Rates and official references for this year are displayed in Verified mileage rules below.</p></ExplainNumber></span></div>
     <TaxTab driverId={driverId} mileageOnly /><DataTable title="Mileage logs" resource={`drivers/${driverId}/mileage`} query={actualQuery} onQuery={setQuery} columns={columns} onData={capture} />
   </>;
 }
@@ -193,12 +205,12 @@ function DocumentsTab({ driverId }: { driverId: string }) {
   };
   const columns = useMemo<ColumnDef<Document>[]>(() => [
     { accessorKey: 'created_at', header: 'Uploaded', cell: ({ row }) => datetime(row.original.created_at) },
-    { accessorKey: 'mime_type', header: 'Type', enableSorting: false },
+    { accessorKey: 'mime_type', header: 'Type', enableSorting: false, cell: ({ row }) => fileTypes[row.original.mime_type] || row.original.mime_type },
     { accessorKey: 'size_bytes', header: 'Size', cell: ({ row }) => `${(row.original.size_bytes / 1024).toFixed(1)} KB` },
     { accessorKey: 'scan_status', header: 'Safety check', enableSorting: false, cell: ({ row }) => <StatusBadge status={row.original.scan_status} /> },
     { id: 'download', header: '', enableSorting: false, cell: ({ row }) => <Space><Tooltip title={['clean', 'generated'].includes(row.original.scan_status) ? 'Download private evidence' : 'Download unavailable until scanning succeeds. Ask the driver for replacement evidence if scanning fails.'}><span><Button size="small" icon={<Download />} disabled={!['clean', 'generated'].includes(row.original.scan_status)} onClick={() => void openDocument(row.original)}>Download</Button></span></Tooltip><RecordAudit driverId={driverId} recordId={row.original.id} /></Space> },
   ], [driverId]);
-  return <><Alert type="info" title="Private evidence store" description="Uploads are quarantined until the configured scanner approves them. Documents are never publicly accessible." className="section-gap" />
+  return <><Alert type="info" title="Private documents" description="New uploads can't be opened until they pass a safety scan. Only staff with access to this driver can see them." className="section-gap" />
     <DataTable title="Documents" resource={`drivers/${driverId}/documents`} query={query} onQuery={setQuery} columns={columns} toolbar={<RoleGuard action="edit"><Upload accept="image/png,image/jpeg,application/pdf" showUploadList={false} disabled={busy}
       beforeUpload={async file => {
         if (file.size > config.upload_max_bytes) { void message.error('File exceeds the server upload limit.'); return false; }
@@ -219,7 +231,7 @@ function ComplianceTab({ driverId }: { driverId: string }) {
     { accessorKey: 'reference', header: 'Reference', enableSorting: false, cell: ({ row }) => row.original.reference || 'Not supplied' },
     { accessorKey: 'expires_on', header: 'Expires', cell: ({ row }) => row.original.expires_on ? date(row.original.expires_on) : 'No expiry recorded' },
     { id: 'expiry_status', header: 'Status', enableSorting: false, cell: ({ row }) => <StatusBadge status={row.original.expiry_status} /> },
-    { id: 'days', header: 'Days left', enableSorting: false, cell: ({ row }) => row.original.days_remaining ?? '—' },
+    { id: 'days', header: 'Time left', enableSorting: false, cell: ({ row }) => { const days = row.original.days_remaining; return days == null ? '—' : days < 0 ? `${Math.abs(days)} ${days === -1 ? 'day' : 'days'} ago` : days === 0 ? 'Today' : `${days} ${days === 1 ? 'day' : 'days'}`; } },
   ], []);
   return <><Alert type="info" title="Licences and vehicle documents" description="Drivers add these in the app. Reminders go out 30, 14 and 3 days before expiry and on the day." className="section-gap" />
     <DataTable title="Licences & documents" resource={`drivers/${driverId}/compliance`} query={query} onQuery={setQuery} columns={columns} /></>;
@@ -268,20 +280,20 @@ function CommunicationTab({ driverId, kind }: { driverId: string; kind: 'message
   const { message } = App.useApp();
   const cache = useQueryClient();
   const columns = useMemo<ColumnDef<Entry>[]>(() => [
-    { accessorKey: 'created_at', header: 'Time (UK)', cell: ({ row }) => datetime(row.original.created_at) },
     { accessorKey: 'author', header: 'From', enableSorting: false },
-    { id: 'audit', header: 'History', enableSorting: false, cell: ({ row }) => <RecordAudit driverId={driverId} recordId={row.original.id} /> },
     { accessorKey: 'body', header: kind === 'messages' ? 'Message' : 'Internal note / ticket', enableSorting: false, cell: ({ row }) => <div className="message-body">{row.original.kind === 'ticket' && <Tag>Ticket</Tag>}{row.original.body}</div> },
+    { accessorKey: 'created_at', header: 'Time (UK)', cell: ({ row }) => datetime(row.original.created_at) },
+    { id: 'audit', header: 'History', enableSorting: false, cell: ({ row }) => <RecordAudit driverId={driverId} recordId={row.original.id} /> },
   ], [kind]);
   const submit = async (values: { body: string; kind?: string }) => {
     if (!values.body.trim()) return;
     setBusy(true);
-    try { await api.mutate(`/drivers/${driverId}/${kind}`, { body: values.body.trim(), kind: values.kind || 'note' }); form.resetFields(); await cache.invalidateQueries({ queryKey: ['table'] }); void message.success(kind === 'messages' ? 'Message saved to the driver’s human accountant thread.' : 'Internal note saved.'); }
+    try { await api.mutate(`/drivers/${driverId}/${kind}`, { body: values.body.trim(), kind: values.kind || 'note' }); form.resetFields(); await cache.invalidateQueries({ queryKey: ['table'] }); void message.success(kind === 'messages' ? 'Message saved.' : 'Internal note saved.'); }
     catch (error) { void message.error((error as Error).message); }
     finally { setBusy(false); }
   };
-  return <><Alert type="info" title={kind === 'messages' ? 'Human accountant conversation' : 'Internal notes & support tickets'}
-    description={kind === 'messages' ? 'Messages are stored in the human thread. Push/email delivery and a Flutter chat screen are separate integrations.' : 'These entries stay inside the staff panel and are not shown to the driver.'} className="section-gap" />
+  return <><Alert type={kind === 'messages' ? 'warning' : 'info'} title={kind === 'messages' ? 'Conversation with the driver' : 'Internal notes & support tickets'}
+    description={kind === 'messages' ? 'Messages are saved here, but the driver is not notified yet. Push and email are not connected.' : 'These entries stay inside the staff panel and are not shown to the driver.'} className="section-gap" />
     <DataTable title={kind === 'messages' ? 'Messages' : 'Notes'} resource={`drivers/${driverId}/${kind}`} query={query} onQuery={setQuery} columns={columns} />
     <RoleGuard action={kind === 'messages' ? 'message' : 'note'}><section className="surface profile-card composer"><h2>{kind === 'messages' ? 'Message the driver' : 'Add an internal entry'}</h2>
       <Form layout="vertical" form={form} onFinish={submit} initialValues={{ kind: 'note' }}><Form.Item name="body" label={kind === 'messages' ? 'Your message' : 'Note or ticket'} rules={[{ required: true, whitespace: true, max: 8000 }]}><Input.TextArea rows={3} maxLength={8000} /></Form.Item>
@@ -293,8 +305,10 @@ function CommunicationTab({ driverId, kind }: { driverId: string; kind: 'message
 function DriverProfileContent({ driverId }: { driverId: string }) {
   const { year } = useWorkspace();
   const location = useLocation();
-  const [tab, setTab] = useState(location.state?.tab || 'overview');
-  useEffect(() => { if (location.state?.tab) setTab(location.state.tab); }, [location.key, location.state]);
+  const [tab, setCurrentTab] = useState(location.state?.tab === 'receipts' ? 'expenses' : location.state?.tab || 'overview');
+  const [expenseView, setExpenseView] = useState(location.state?.tab === 'receipts' ? 'receipts' : 'ledger');
+  const setTab = useCallback((next: string) => { setExpenseView(next === 'receipts' ? 'receipts' : 'ledger'); setCurrentTab(next === 'receipts' ? 'expenses' : next); }, []);
+  useEffect(() => { if (location.state?.tab) setTab(location.state.tab); }, [location.key, location.state, setTab]);
   const [auditQuery, setAuditQuery] = useState(initialQuery);
   const openReturn = useOpenReturn();
   const result = useQuery({ queryKey: ['overview', driverId, year], queryFn: ({ signal }) => api.overview(driverId, year, signal) });
@@ -308,7 +322,7 @@ function DriverProfileContent({ driverId }: { driverId: string }) {
         { key: 'overview', label: 'Overview', children: <PanelBoundary resetKey={`${driverId}-${year}`}><WorkflowPanel data={data} onTab={setTab} /><OverviewTab data={data} /></PanelBoundary> },
         ...(['income', 'expenses', 'mileage', 'tax', 'mtd', 'documents', 'compliance', 'messages', 'notes', 'activity'] as const).map(key => ({ key,
           label: key === 'activity' ? 'Activity log' : key === 'notes' ? 'Internal notes' : key === 'mtd' ? 'MTD & VAT' : key === 'compliance' ? 'Licences' : label(key),
-          children: <PanelBoundary resetKey={`${key}-${year}`}>{key === 'income' ? <LedgerTab key={`${key}-${year}`} driverId={driverId} kind={key} /> : key === 'expenses' ? <ExpenseTabs key={year} driverId={driverId} /> :
+          children: <PanelBoundary resetKey={`${key}-${year}`}>{key === 'income' ? <LedgerTab key={`${key}-${year}`} driverId={driverId} kind={key} /> : key === 'expenses' ? <ExpenseTabs key={`${year}-${expenseView}`} driverId={driverId} view={expenseView === 'receipts' ? 'receipts' : 'ledger'} /> :
             key === 'mileage' ? <MileageTab key={year} driverId={driverId} /> : key === 'tax' ? <TaxTab driverId={driverId} /> : key === 'mtd' ? <MtdTab driverId={driverId} /> : key === 'compliance' ? <ComplianceTab driverId={driverId} /> :
               key === 'documents' ? <DocumentsTab driverId={driverId} /> : key === 'messages' || key === 'notes' ? <CommunicationTab driverId={driverId} kind={key} /> :
                 <AuditTimeline resource={`drivers/${driverId}/activity`} query={auditQuery} onQuery={setAuditQuery} />}</PanelBoundary>,

@@ -76,7 +76,7 @@ def checklist(db, owner, year):
         item("year_ended", "Tax year has ended", today() > end, f"The {year} tax year ends on {end}. A full-year return cannot be reviewed before then."),
         item("tax_profile", "Tax profile supplied", bool(tax), "Region, PAYE and other income inputs drive the calculation." if tax else "The driver has not saved tax profile inputs for this year.", tab="tax"),
         item("drafts", "No unconfirmed ledger drafts", not drafts, f"{drafts} draft posting(s) are excluded from totals.", tab="income"),
-        item("receipts", "Receipts reviewed", not totals["pending_receipts"], f"{totals['pending_receipts']} receipt(s) still need a decision.", tab="expenses"),
+        item("receipts", "Receipts reviewed", not totals["pending_receipts"], f"{totals['pending_receipts']} receipt(s) still need a decision.", tab="receipts"),
         item("reconciliation", "Statements reconciled", not totals["unresolved_issues"], f"{totals['unresolved_issues']} reconciliation issue(s) remain open.", tab="income"),
         item("vehicle_methods", "Vehicle method chosen", not unelected, f"{unelected} vehicle(s) have mileage but no claim method.", tab="mileage"),
         item("records", "Records exist for the year", has_records, "Income, expenses or mileage were recorded." if has_records else "No records exist; confirm this is a nil return.", "warn", "income"),

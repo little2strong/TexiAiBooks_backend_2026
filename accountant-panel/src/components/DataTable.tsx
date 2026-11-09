@@ -415,8 +415,7 @@ function DataTableContent<T extends { id: string }>({
       )}
       </QueryState><div className="table-footer">
         <span aria-live="polite">
-          {result.data?.total?.toLocaleString() ?? "—"} records · filtered
-          results
+          {result.data?.total == null ? "—" : `${result.data.total.toLocaleString()} ${result.data.total === 1 ? "record" : "records"}`}
         </span>
         <Pagination
           size="small"

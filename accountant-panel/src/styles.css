@@ -9,7 +9,7 @@ html { overflow-y: scroll; }
 /* Stable frames are shared by loaded, pending, empty and failed panels. */
 .query-panel { min-height: 280px; }
 .query-stats { min-height: 104px; }
-.query-table { height: 360px; overflow: auto; }
+.query-table { min-height: 360px; }
 .query-dashboard { min-height: 530px; }
 .query-profile { min-height: 650px; }
 .query-tax { min-height: 700px; }
@@ -700,8 +700,7 @@ kbd {
   width: 168px;
 }
 .table-scroll {
-  overflow: auto;
-  height: 360px;
+  overflow-x: auto;
   border-radius: 0 0 var(--radius-card) var(--radius-card);
 }
 .table-scroll table {
@@ -931,6 +930,11 @@ kbd {
 }
 .page-heading p a {
   text-decoration: underline;
+}
+.receipt-pdf-link {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--font-table);
 }
 .workspace-nav-label {
   margin-top: var(--space-5);

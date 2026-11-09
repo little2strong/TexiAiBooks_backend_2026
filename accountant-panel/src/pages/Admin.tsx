@@ -198,9 +198,10 @@ function PrivacyContent() {
 }
 
 function AuditContent() {
-  const [query, setQuery] = useState<TableQuery>({ ...initialQuery });
+  const [query, setQuery] = useState<TableQuery>({ ...initialQuery, filters: { kind: 'changes' } });
   return <><div className="page-heading"><div><span className="eyebrow">ADMINISTRATION</span><h1>Audit log</h1><p>Everything staff have viewed or changed, across all drivers.</p></div></div>
-    <AuditTimeline resource="audit" query={query} onQuery={setQuery} /></>;
+    <AuditTimeline global resource="audit" query={query} onQuery={setQuery} toolbar={<Select aria-label="Filter audit events" className="status-filter" value={query.filters.kind || 'all'} options={[{ value: 'changes', label: 'Changes only' }, { value: 'all', label: 'Changes and views' }]}
+      onChange={value => setQuery({ ...query, page: 1, filters: value === 'all' ? {} : { kind: value } })} />} /></>;
 }
 
 export const UsersPage = () => <AdminOnly><UsersContent /></AdminOnly>;

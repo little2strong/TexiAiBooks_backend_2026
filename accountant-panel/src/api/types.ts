@@ -144,6 +144,8 @@ export interface AuditEvent {
   created_at: string;
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
+  driver_id?: string | null;
+  driver_name?: string | null;
 }
 export interface Receipt {
   reviewerName?: string | null;

@@ -405,11 +405,14 @@ export function ReceiptViewer({
                 ) : !url ? (
                   <Spin description="Loading private evidence" />
                 ) : receipt.mime_type === "application/pdf" ? (
+                  <>
+                  <a className="receipt-pdf-link" href={url} download="receipt.pdf">Preview blank? Download the PDF</a>
                   <iframe
                     title="Private receipt PDF"
                     src={url}
                     sandbox="allow-same-origin"
                   />
+                  </>
                 ) : (
                   <div
                     className="receipt-image-frame"

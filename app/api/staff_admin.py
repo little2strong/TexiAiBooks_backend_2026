@@ -265,8 +265,10 @@ def create_team(data: TeamInput, auth: StaffAuth, db: SessionDep, request: Reque
 @router.post("/audit/search")
 def audit_log(data: TableQuery, auth: StaffAuth, db: SessionDep):
     require_admin(auth[0])
-    query_filters(data, {"action"})
+    query_filters(data, {"action", "kind"})
     query = select(StaffAudit)
+    if data.filters.get("kind") == "changes":
+        query = query.where(~StaffAudit.action.like("%\\_view", escape="\\"), ~StaffAudit.action.in_(["login_succeeded", "logout", "receipt_view"]))
     if data.filters.get("action"):
         query = query.where(StaffAudit.action == data.filters["action"])
     if data.search:
@@ -274,6 +276,7 @@ def audit_log(data: TableQuery, auth: StaffAuth, db: SessionDep):
     def serialize(row):
         actor = db.get(StaffAccount, row.actor_id)
         return {"id": row.id, "actor_name": actor.name if actor else "Unknown", "action": row.action, "driver_id": row.driver_id,
+            "driver_name": driver_name(db, db.get(User, row.driver_id)) if row.driver_id else None,
             "resource_id": row.resource_id, "created_at": row.created_at, "before": row.before, "after": row.after}
     return paginate(db, query, StaffAudit, data, {"created_at": StaffAudit.created_at}, serialize)
 

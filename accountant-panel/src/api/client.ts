@@ -94,9 +94,18 @@ export async function request<T>(
       429: "Too many attempts. Wait before trying again.",
       503: "This service is not configured or is temporarily unavailable.",
     };
+    let reason: string | undefined;
+    // 401 stays generic so sign-in never reveals which part was wrong.
+    if ([403, 404, 409, 410, 422].includes(response.status)) {
+      try {
+        const { detail } = await response.clone().json();
+        if (typeof detail === "string") reason = detail;
+        else if (Array.isArray(detail) && detail[0]?.msg) reason = `${String(detail[0].loc?.at(-1) ?? "value").replaceAll("_", " ")}: ${detail[0].msg}`;
+      } catch { /* Fall back to the general message for this status. */ }
+    }
     throw new ApiError(
       response.status,
-      `${messages[response.status] || "The request failed. Please try again."} Request ID: ${response.headers.get('X-Request-ID') || requestId}`,
+      `${reason || messages[response.status] || "The request failed. Please try again."} Request ID: ${response.headers.get('X-Request-ID') || requestId}`,
     );
   }
   if (response.status === 204) return undefined as T;
