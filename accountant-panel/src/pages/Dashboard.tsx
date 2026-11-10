@@ -20,7 +20,7 @@ export function DashboardPage() {
   const result = useQuery({ queryKey: ['dashboard', year], queryFn: ({ signal }) => api.dashboard(year, signal) });
   const data = result.data;
   const stats = data ? [
-    { label: active.staff.role === 'admin' || active.staff.role === 'support' ? 'Visible drivers' : 'Assigned drivers', value: data.assigned_drivers, icon: <Car />, note: 'Within your access scope', className: 'mint' },
+    { label: 'Assigned drivers', value: data.assigned_drivers, icon: <Car />, note: 'Drivers an admin assigned to you', className: 'mint' },
     { label: 'Pending handoffs', value: data.pending_handoffs, icon: <ClipboardCheck />, note: 'Awaiting review or filing', className: 'blue' },
     { label: 'Returns due soon', value: data.due_soon, icon: <Clock3 />, note: 'Due in the next 30 days', className: 'amber' },
     { label: 'Overdue returns', value: data.overdue, icon: <CircleAlert />, note: 'Past the supplied-year deadline', className: 'rose' },

@@ -3,26 +3,34 @@
 > playwright test
 
 
-Running 18 tests using 1 worker
+Running 20 tests using 1 worker
 
-  ok  1 e2e\admin.spec.ts:19:1 â€º table rows show both lines of a two-line cell (2.2s)
-  ok  2 e2e\admin.spec.ts:34:1 â€º admin screens load, stay accessible and rates move through approval (8.2s)
-  ok  3 e2e\admin.spec.ts:60:1 â€º a tax return opens from the driver profile and shows why it is blocked (3.2s)
-  ok  4 e2e\admin.spec.ts:76:1 â€º non-admin staff cannot reach administration (2.3s)
-  -   5 e2e\diagnostics.spec.ts:4:1 â€º React profiler settles without an idle update loop
-  -   6 e2e\evidence.spec.ts:6:1 â€º capture comparable Lighthouse and Chrome layout evidence
-  ok  7 e2e\stability.spec.ts:18:1 â€º login, queue, driver and tax stay stable with slow API responses and normal motion (11.0s)
-  ok  8 e2e\theme.spec.ts:23:1 â€º light default, persisted appearance, and live system preference (2.4s)
-  ok  9 e2e\theme.spec.ts:45:1 â€º styleguide renders accessible light and dark components, modal and drawer (3.9s)
-  ok 10 e2e\theme.spec.ts:79:1 â€º reduced motion and compact table density (1.5s)
-  ok 11 e2e\theme.spec.ts:98:1 â€º mobile and tablet layouts stay within the viewport (1.1s)
-  ok 12 e2e\theme.spec.ts:174:1 â€º workspace shell, keyboard search and user-scoped theme (4.1s)
-  ok 13 e2e\theme.spec.ts:203:1 â€º receipt review uses confidence tokens, zoom and exact audited Undo (3.7s)
-  ok 14 e2e\workspace.spec.ts:17:1 â€º staff login, scoped dashboard, queue, directory and every profile tab (5.8s)
-  ok 15 e2e\workspace.spec.ts:65:1 â€º receipt corrections save drafts, approval posts and exact reversal restores review (4.8s)
-  ok 16 e2e\workspace.spec.ts:88:1 â€º support remains read-only but can create an internal ticket (2.1s)
-  ok 17 e2e\workspace.spec.ts:104:1 â€º saved views, CSV, tablet, dark mode and WCAG checks (3.8s)
-  ok 18 e2e\workspace.spec.ts:124:1 â€º a handoff cannot be filed directly; filing goes through the tax return (2.8s)
+  ok  1 e2e\admin.spec.ts:21:1 â€º table rows show both lines of a two-line cell (2.8s)
+  ok  2 e2e\admin.spec.ts:36:1 â€º admin screens load, stay accessible and rates move through approval (9.3s)
+  ok  3 e2e\admin.spec.ts:63:1 â€º a tax return opens from the driver profile and shows why it is blocked (2.7s)
+  ok  4 e2e\admin.spec.ts:79:1 â€º non-admin staff cannot reach administration (955ms)
+  ok  5 e2e\admin.spec.ts:86:1 â€º each role signs in only on its own page (1.4s)
+  ok  6 e2e\admin.spec.ts:98:1 â€º an admin assigns a driver from the driver list (2.4s)
+  -   7 e2e\diagnostics.spec.ts:4:1 â€º React profiler settles without an idle update loop
+  -   8 e2e\evidence.spec.ts:6:1 â€º capture comparable Lighthouse and Chrome layout evidence
+  ok  9 e2e\stability.spec.ts:18:1 â€º login, queue, driver and tax stay stable with slow API responses and normal motion (11.0s)
+  ok 10 e2e\theme.spec.ts:23:1 â€º light default, persisted appearance, and live system preference (2.0s)
+  ok 11 e2e\theme.spec.ts:45:1 â€º styleguide renders accessible light and dark components, modal and drawer (3.8s)
+  ok 12 e2e\theme.spec.ts:79:1 â€º reduced motion and compact table density (1.3s)
+  ok 13 e2e\theme.spec.ts:98:1 â€º mobile and tablet layouts stay within the viewport (981ms)
+  ok 14 e2e\theme.spec.ts:173:1 â€º workspace shell, keyboard search and user-scoped theme (3.0s)
+  ok 15 e2e\theme.spec.ts:202:1 â€º receipt review uses confidence tokens, zoom and exact audited Undo (3.1s)
+  ok 16 e2e\workspace.spec.ts:19:1 â€º staff login, scoped dashboard, queue, directory and every profile tab (5.7s)
+  ok 17 e2e\workspace.spec.ts:66:1 â€º receipt corrections save drafts, approval posts and exact reversal restores review (4.3s)
+  ok 18 e2e\workspace.spec.ts:89:1 â€º an accountant sees only assigned drivers and is kept out of the admin console (1.2s)
+  ok 19 e2e\workspace.spec.ts:98:1 â€º saved views, CSV, tablet, dark mode and WCAG checks (3.2s)
+  ok 20 e2e\workspace.spec.ts:118:1 â€º a handoff cannot be filed directly; filing goes through the tax return (2.2s)
 
   2 skipped
-  16 passed (1.1m)
+  18 passed (1.1m)
+[WebServer] (node:17612) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:9068) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+(node:16564) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)

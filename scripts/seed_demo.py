@@ -26,7 +26,7 @@ from app.models import User
 from app.models.books import (Business, DriverDocument, Election, Mileage, PrivacyRequest, PrivateFile, Profile,
     Receipt, SupportRecord, TaxAdjustment, TaxReturn, Transaction, Vehicle)
 from app.models.common import utc_now
-from app.models.staff import AccountantHandoff, AiFeedback, DriverAssignment, StaffAccount, StaffAudit, StaffEntry, StaffTeam, TaxRate
+from app.models.staff import AccountantHandoff, AiFeedback, DriverAssignment, StaffAccount, StaffAudit, StaffEntry, TaxRate
 from app.services.books import catalog_id
 from app.services.tax import estimate, rule_set
 from app.services.vault import encrypt
@@ -64,11 +64,11 @@ def receipt_image(merchant, day, pence):
     return b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 0, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(raw)) + chunk(b"IEND", b"")
 
 
-def staff(db, email, name, role, team, password):
+def staff(db, email, name, role, password):
     user = User(email=email, password_hash=password, display_name=name, created_at=days_ago(400))
     db.add(user)
     db.flush()
-    row = StaffAccount(id=user.id, name=name, role=role, team_id=team.id if team else None, totp_secret=b"", last_totp_counter=-1)
+    row = StaffAccount(id=user.id, name=name, role=role, totp_secret=b"", last_totp_counter=-1)
     db.add(row)
     db.flush()
     return row
@@ -159,7 +159,7 @@ def history(db, user, year, gross, paye=0, source="filed", rent=0):
         "gross_property_income_pence": rent, "paye_income_pence": paye, "source": source, "return_filed": "yes" if source == "filed" else "not_yet_due"}))
 
 
-def prepared_return(db, user, actor, status, adjustment=None, reference=None):
+def prepared_return(db, user, actor, status, adjustment=None, reference=None, filer=None):
     """Build a return at a later stage through the same engine the panel uses."""
     row = TaxReturn(owner_id=user.id, tax_year=PRIOR, earlier_snapshots=[], review_version=0)
     db.add(row)
@@ -177,8 +177,8 @@ def prepared_return(db, user, actor, status, adjustment=None, reference=None):
     if status in {"driver_approved", "filed"}:
         row.driver_decided_at = days_ago(6)
     if status == "filed":
-        row.filing_reference, row.filed_at, row.filed_by = reference, days_ago(3), actor.id
-        db.add(StaffAudit(actor_id=actor.id, driver_id=user.id, resource_id=row.id, action="tax_return_filed", created_at=days_ago(3), after={"filing_reference": reference, "reason": "Filed through practice software"}))
+        row.filing_reference, row.filed_at, row.filed_by = reference, days_ago(3), (filer or actor).id
+        db.add(StaffAudit(actor_id=(filer or actor).id, driver_id=user.id, resource_id=row.id, action="tax_return_filed", created_at=days_ago(3), after={"filing_reference": reference, "reason": "Filed through practice software"}))
     return row
 
 
@@ -199,15 +199,11 @@ def main():
         with Session(engine) as db:
             if db.scalar(select(StaffAccount).limit(1)):
                 parser.error("This demo database already has staff; create a fresh one to reseed")
-            north = StaffTeam(name="North London")
-            south = StaffTeam(name="South London")
-            db.add_all([north, south])
             db.flush()
-            admin = staff(db, "admin@taxiaibooks.example", "Arif Rahman", "admin", None, hashed)
-            senior = staff(db, "senior@taxiaibooks.example", "Sarah Jones", "senior_accountant", north, hashed)
-            accountant = staff(db, "accountant@taxiaibooks.example", "Priya Shah", "accountant", north, hashed)
-            south_accountant = staff(db, "accountant2@taxiaibooks.example", "Tom Evans", "accountant", south, hashed)
-            staff(db, "support@taxiaibooks.example", "Lena Novak", "support", None, hashed)
+            admin = staff(db, "admin@taxiaibooks.example", "Arif Rahman", "admin", hashed)
+            sarah = staff(db, "sarah@taxiaibooks.example", "Sarah Jones", "accountant", hashed)
+            accountant = staff(db, "accountant@taxiaibooks.example", "Priya Shah", "accountant", hashed)
+            south_accountant = staff(db, "accountant2@taxiaibooks.example", "Tom Evans", "accountant", hashed)
 
             # Ali Khan: the spec's PAYE persona. Two receipts and a platform dispute keep his return open.
             ali, ali_books = driver(db, settings, "ali.khan@driver.example", "Ali", "Khan", hashed, 210, "1234567890", "QQ123456C",
@@ -253,12 +249,12 @@ def main():
             receipt(db, mohammed, mohammed_books, "Kwik Fit", 18900, date(2026, 9, 20), "maintenance", 0.97)
 
             # Fatima Noor: Scottish taxpayer, waiting on documents.
-            fatima, fatima_books = driver(db, settings, "fatima.noor@driver.example", "Fatima", "Noor", hashed, 150, "3456789012", None, region="scotland", accountant=senior)
+            fatima, fatima_books = driver(db, settings, "fatima.noor@driver.example", "Fatima", "Noor", hashed, 150, "3456789012", None, region="scotland", accountant=sarah)
             weekly_income(db, fatima, fatima_books, date(2025, 9, 1), 28, 61000, step=200)
             weekly_income(db, fatima, fatima_books, date(2026, 4, 13), 28, 66000)
             history(db, fatima, PRIOR, 1820000, source="estimate")
-            handoff(db, fatima, PRIOR, "waiting_on_driver", senior, 12, "filing_question")
-            db.add(StaffEntry(driver_id=fatima.id, staff_id=senior.id, kind="message", body="Fatima, we still need your September bank statement.", created_at=days_ago(5)))
+            handoff(db, fatima, PRIOR, "waiting_on_driver", sarah, 12, "filing_question")
+            db.add(StaffEntry(driver_id=fatima.id, staff_id=sarah.id, kind="message", body="Fatima, we still need your September bank statement.", created_at=days_ago(5)))
 
             # Daniel Reid: review sent, waiting for his sign-off.
             daniel, daniel_books = driver(db, settings, "daniel.reid@driver.example", "Daniel", "Reid", hashed, 300, "4567890123", "QQ345678C", accountant=accountant)
@@ -267,18 +263,18 @@ def main():
             prepared_return(db, daniel, accountant, "awaiting_driver")
             handoff(db, daniel, PRIOR, "in_review", accountant, 22)
 
-            # Grace Bennett: signed off, so a senior accountant can record the filing.
-            grace, grace_books = driver(db, settings, "grace.bennett@driver.example", "Grace", "Bennett", hashed, 360, "5678901234", "QQ456789C", accountant=senior)
+            # Grace Bennett: signed off, so an admin can record the filing.
+            grace, grace_books = driver(db, settings, "grace.bennett@driver.example", "Grace", "Bennett", hashed, 360, "5678901234", "QQ456789C", accountant=sarah)
             weekly_income(db, grace, grace_books, date(2025, 4, 14), 45, 81000)
             expense(db, grace, grace_books, date(2025, 7, 7), 15000, "cleaning", "Valeting")
-            prepared_return(db, grace, senior, "driver_approved")
-            handoff(db, grace, PRIOR, "ready_to_file", senior, 30)
+            prepared_return(db, grace, sarah, "driver_approved")
+            handoff(db, grace, PRIOR, "ready_to_file", sarah, 30)
 
             # Amina Yusuf: filed and locked, including a capital allowance adjustment and AI feedback.
             amina, amina_books = driver(db, settings, "amina.yusuf@driver.example", "Amina", "Yusuf", hashed, 380, "6789012345", "QQ567890C", accountant=south_accountant)
             weekly_income(db, amina, amina_books, date(2025, 4, 14), 48, 69000)
             expense(db, amina, amina_books, date(2025, 10, 6), 12000, "phone_data", "Phone and data")
-            prepared_return(db, amina, south_accountant, "filed", adjustment=120000, reference="SA-2026-104482")
+            prepared_return(db, amina, south_accountant, "filed", adjustment=120000, reference="SA-2026-104482", filer=admin)
             handoff(db, amina, PRIOR, "filed", south_accountant, 44)
             reviewed = receipt(db, amina, amina_books, "BP Croydon", 6100, date(2025, 11, 20), "fuel", 0.71, reviewed=True)
             db.add(AiFeedback(receipt_id=reviewed.id, driver_id=amina.id, staff_id=south_accountant.id, verdict="corrected", corrections={"merchant": "BP Purley Way"}, reason="OCR read the wrong site name", created_at=days_ago(10)))
@@ -292,7 +288,7 @@ def main():
             db.add(TaxRate(tax_year="2027-28", region="uk", code="vat", value={"threshold_pence": 9000000}, status="draft",
                 official_url="https://www.gov.uk/vat-registration/when-to-register", reason="Carry forward the threshold for next year", created_by=admin.id))
             db.commit()
-        print("Demo personas loaded. Staff emails: admin@, senior@, accountant@, accountant2@, support@taxiaibooks.example")
+        print("Demo personas loaded. Admin (/admin/login): admin@taxiaibooks.example. Accountants (/login): accountant@, accountant2@, sarah@taxiaibooks.example")
     finally:
         engine.dispose()
 

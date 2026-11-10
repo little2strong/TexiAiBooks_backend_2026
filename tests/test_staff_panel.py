@@ -11,7 +11,7 @@ from app.core.security import password_hash
 from app.models import AuthChallenge, DeviceSession, User
 from app.models.books import Business, PrivateFile, Receipt, SupportRecord, Transaction
 from app.models.common import utc_now
-from app.models.staff import AccountantHandoff, DriverAssignment, StaffAccount, StaffAudit, StaffEntry, StaffTeam
+from app.models.staff import AccountantHandoff, DriverAssignment, StaffAccount, StaffAudit, StaffEntry
 from app.services.books import catalog_id
 
 
@@ -23,20 +23,16 @@ def mutation(auth):
 def panel(client, db_session, account):
     settings = client.app.state.settings
     settings.identifier_encryption_keys = [SecretStr(Fernet.generate_key().decode())]
-    team = StaffTeam(name="Team one")
-    other_team = StaffTeam(name="Team two")
-    db_session.add_all([team, other_team])
-    db_session.flush()
     members = {}
-    for role in ("admin", "senior_accountant", "accountant", "support", "other"):
+    for role in ("admin", "accountant", "other"):
         user = User(email=f"{role}@practice.example", password_hash=password_hash.hash("staff-password-123"))
         db_session.add(user)
         db_session.flush()
-        staff = StaffAccount(id=user.id, name=role.title(), role="accountant" if role == "other" else role,
-            team_id=other_team.id if role == "other" else team.id)
+        staff = StaffAccount(id=user.id, name=role.title(), role="accountant" if role == "other" else role)
         db_session.add(staff)
         db_session.commit()
-        result = client.post("/api/v1/staff/auth/login", json={"email": user.email, "password": "staff-password-123"})
+        result = client.post("/api/v1/staff/auth/login", json={"email": user.email, "password": "staff-password-123",
+            "portal": staff.role})
         assert result.status_code == 200, result.text
         members[role] = (staff, {"Authorization": "Bearer " + result.json()["access_token"]})
     driver, driver_auth = account
@@ -48,7 +44,7 @@ def panel(client, db_session, account):
 
 def test_staff_tokens_are_separate_and_assignments_are_enforced(client, panel):
     members, owner, driver_auth = panel
-    for role in ("accountant", "senior_accountant", "admin", "support"):
+    for role in ("accountant", "admin"):
         response = client.post("/api/v1/staff/drivers/search", headers=members[role][1], json={})
         assert response.status_code == 200, response.text
         assert [row["id"] for row in response.json()["items"]] == [str(owner)]
@@ -65,8 +61,8 @@ def test_password_session_revocation_and_server_idle_timeout(client, panel, db_s
     device.last_used_at = utc_now() - timedelta(minutes=16)
     db_session.commit()
     assert client.get("/api/v1/staff/me", headers=auth).status_code == 401
-    assert client.post("/api/v1/staff/auth/logout", headers=members["support"][1]).status_code == 204
-    assert client.get("/api/v1/staff/me", headers=members["support"][1]).status_code == 401
+    assert client.post("/api/v1/staff/auth/logout", headers=members["other"][1]).status_code == 204
+    assert client.get("/api/v1/staff/me", headers=members["other"][1]).status_code == 401
 
 
 def test_email_password_login_returns_audited_staff_session_without_challenge(client, panel, db_session):
@@ -91,10 +87,10 @@ def test_password_login_rejects_invalid_credentials_and_disabled_staff(client, p
         assert result.json() == {"detail": "Invalid staff credentials"}
     driver = db_session.get(User, owner)
     driver.password_hash = password_hash.hash("driver-test-password")
-    members["support"][0].active = False
+    members["other"][0].active = False
     db_session.commit()
     assert client.post("/api/v1/staff/auth/login", json={"email": driver.email, "password": "driver-test-password"}).status_code == 401
-    assert client.post("/api/v1/staff/auth/login", json={"email": "support@practice.example", "password": "staff-password-123"}).status_code == 401
+    assert client.post("/api/v1/staff/auth/login", json={"email": "other@practice.example", "password": "staff-password-123"}).status_code == 401
 
 
 def test_staff_password_login_attempts_remain_rate_limited(client):
@@ -118,7 +114,7 @@ def test_consented_requests_assignment_versions_and_unknown_year(client, panel, 
     assert dashboard["pending_handoffs"] == dashboard["year_not_supplied"] == 1
     assert dashboard["due_soon"] == dashboard["overdue"] == 0
     payload = {"ids": [row["id"]], "accountant_id": str(members["other"][0].id), "versions": {row["id"]: 1}, "reason": "Transfer workload"}
-    assert client.post("/api/v1/staff/handoffs/assign", headers=mutation(members["senior_accountant"][1]), json=payload).status_code == 403
+    assert client.post("/api/v1/staff/handoffs/assign", headers=mutation(members["accountant"][1]), json=payload).status_code == 403
     key = mutation(members["admin"][1])
     result = client.post("/api/v1/staff/handoffs/assign", headers=key, json=payload)
     assert result.status_code == 200, result.text
@@ -142,16 +138,104 @@ def test_pre_panel_accountant_idempotency_response_stays_replayable(client, pane
     assert response.json() == original_response
 
 
-def test_support_cannot_edit_reveal_or_export_but_can_note(client, panel, db_session):
+def test_accountant_cannot_use_admin_endpoints(client, panel):
     members, owner, _ = panel
-    auth = members["support"][1]
-    assert client.post(f"/api/v1/staff/drivers/{owner}/identifiers/reveal", headers=auth, json={"tax_year": "2026-27", "field": "utr", "reason": "Review return"}).status_code == 403
-    assert client.post("/api/v1/staff/exports", headers=auth, json={"resource": "drivers", "query": {}}).status_code == 403
-    assert client.post(f"/api/v1/staff/drivers/{owner}/messages", headers=mutation(auth), json={"body": "Not permitted"}).status_code == 403
+    auth = members["accountant"][1]
+    for path, body in [("/api/v1/staff/users/search", {}), ("/api/v1/staff/rates/search", {}), ("/api/v1/staff/privacy-requests/search", {}),
+            ("/api/v1/staff/audit/search", {}), ("/api/v1/staff/accountants/search", {}), ("/api/v1/staff/admin/overview", {"tax_year": "2026-27"})]:
+        assert client.post(path, headers=auth, json=body).status_code == 403, path
+    assignment = {"driver_ids": [str(owner)], "accountant_id": None, "reason": "Not allowed"}
+    assert client.post("/api/v1/staff/drivers/assign", headers=mutation(auth), json=assignment).status_code == 403
+    # Accountants keep their day-to-day work.
     result = client.post(f"/api/v1/staff/drivers/{owner}/notes", headers=mutation(auth), json={"body": "Evidence requested", "kind": "ticket"})
     assert result.status_code == 201, result.text
-    assert result.json()["kind"] == "ticket"
-    assert db_session.scalar(select(StaffEntry).where(StaffEntry.driver_id == owner)).body == "Evidence requested"
+
+
+def test_each_role_signs_in_only_through_its_own_portal(client, panel, db_session):
+    members, _, _ = panel
+    for email, portal in [("admin@practice.example", "accountant"), ("accountant@practice.example", "admin")]:
+        result = client.post("/api/v1/staff/auth/login", json={"email": email, "password": "staff-password-123", "portal": portal})
+        assert result.status_code == 401
+        assert result.json() == {"detail": "Invalid staff credentials"}
+    # Omitting the portal means the accountant sign-in page.
+    assert client.post("/api/v1/staff/auth/login", json={"email": "admin@practice.example", "password": "staff-password-123"}).status_code == 401
+    assert db_session.scalar(select(StaffAudit).where(StaffAudit.actor_id == members["admin"][0].id, StaffAudit.action == "login_refused_wrong_portal"))
+    result = client.post("/api/v1/staff/auth/login", json={"email": "admin@practice.example", "password": "staff-password-123", "portal": "admin"})
+    assert result.status_code == 200
+    assert result.json()["staff"]["role"] == "admin"
+    assert "team_id" not in result.json()["staff"]
+
+
+def test_admin_assigns_and_unassigns_drivers_directly(client, panel, db_session):
+    members, owner, _ = panel
+    admin = members["admin"][1]
+    path = "/api/v1/staff/drivers/assign"
+    payload = {"driver_ids": [str(owner)], "accountant_id": str(members["other"][0].id), "reason": "Balance workload"}
+    result = client.post(path, headers=mutation(admin), json=payload)
+    assert result.status_code == 200, result.text
+    assert result.json()["items"][0]["accountant_name"] == "Other"
+    assert client.post("/api/v1/staff/drivers/search", headers=members["accountant"][1], json={}).json()["total"] == 0
+    assert client.post("/api/v1/staff/drivers/search", headers=members["other"][1], json={}).json()["total"] == 1
+    assert client.post(path, headers=mutation(admin), json={**payload, "accountant_id": str(members["admin"][0].id)}).status_code == 422
+    result = client.post(path, headers=mutation(admin), json={**payload, "accountant_id": None, "reason": "Driver left the practice"})
+    assert result.status_code == 200, result.text
+    assert result.json()["items"][0]["accountant_id"] is None
+    unassigned = client.post("/api/v1/staff/drivers/search", headers=admin, json={"filters": {"assignment": "unassigned"}}).json()
+    assert [row["id"] for row in unassigned["items"]] == [str(owner)]
+    assert client.post("/api/v1/staff/drivers/search", headers=admin, json={"filters": {"assignment": "assigned"}}).json()["total"] == 0
+    actions = [row.action for row in db_session.scalars(select(StaffAudit).where(StaffAudit.driver_id == owner,
+        StaffAudit.action.in_(["driver_reassigned", "driver_unassigned"])).order_by(StaffAudit.created_at))]
+    assert "driver_reassigned" in actions and actions[-1] == "driver_unassigned"
+
+
+def test_admin_manages_staff_accounts(client, panel, db_session):
+    members, owner, _ = panel
+    admin = members["admin"][1]
+    accountant = members["accountant"][0]
+    # Deactivating someone who still has drivers would strand those drivers.
+    result = client.patch(f"/api/v1/staff/users/{accountant.id}", headers=mutation(admin), json={"expected_version": 1, "active": False, "reason": "Left the practice"})
+    assert result.status_code == 409
+    assert "1 assigned driver" in result.json()["detail"]
+    created = client.post("/api/v1/staff/users", headers=mutation(admin), json={"email": "new@practice.example", "name": "New Person",
+        "role": "accountant", "password": "first-password-123"})
+    assert created.status_code == 201, created.text
+    assert created.json()["role"] == "accountant" and "team_name" not in created.json()
+    assert client.post("/api/v1/staff/users", headers=mutation(admin), json={"email": "x@practice.example", "name": "X",
+        "role": "senior_accountant", "password": "first-password-123"}).status_code == 422
+    # Password reset ends the person's sessions and the new password works.
+    other, other_auth = members["other"]
+    reset = client.post(f"/api/v1/staff/users/{other.id}/password", headers=mutation(admin), json={
+        "expected_version": 1, "password": "replacement-password-1", "reason": "Locked out"})
+    assert reset.status_code == 200, reset.text
+    assert client.get("/api/v1/staff/me", headers=other_auth).status_code == 401
+    assert client.post("/api/v1/staff/auth/login", json={"email": "other@practice.example", "password": "replacement-password-1"}).status_code == 200
+    assert client.post(f"/api/v1/staff/users/{members['admin'][0].id}/password", headers=mutation(admin), json={
+        "expected_version": 1, "password": "replacement-password-1", "reason": "Self"}).status_code == 409
+    event = db_session.scalar(select(StaffAudit).where(StaffAudit.action == "staff_password_reset"))
+    assert "replacement-password-1" not in str(event.after)
+    # Promoting an accountant to admin needs a fresh sign-in at the admin page.
+    promoted = client.patch(f"/api/v1/staff/users/{other.id}", headers=mutation(admin), json={"expected_version": 2, "role": "admin", "reason": "New practice manager"})
+    assert promoted.status_code == 200, promoted.text
+    assert client.post("/api/v1/staff/auth/login", json={"email": "other@practice.example", "password": "replacement-password-1", "portal": "admin"}).status_code == 200
+
+
+def test_admin_overview_counts_practice_work(client, panel, db_session):
+    members, owner, _ = panel
+    for index in range(2):
+        db_session.add(User(email=f"waiting-{index}@example.invalid", password_hash="unusable-test-hash"))
+    request = SupportRecord(owner_id=owner, kind="accountant_request", data={"kind": "filing_question"})
+    db_session.add(request); db_session.flush()
+    db_session.add(AccountantHandoff(id=request.id, driver_id=owner, tax_year="2026-27"))
+    db_session.commit()
+    result = client.post("/api/v1/staff/admin/overview", headers=members["admin"][1], json={"tax_year": "2026-27"})
+    assert result.status_code == 200, result.text
+    data = result.json()
+    assert data["drivers"] == {"total": 3, "unassigned": 2}
+    assert data["staff"] == {"admins": 1, "accountants": 2, "inactive": 0}
+    assert data["handoffs"]["open"] == data["handoffs"]["new"] == 1 and data["handoffs"]["unassigned"] == 0
+    workload = {row["name"]: row for row in data["workload"]}
+    assert workload["Accountant"]["assigned_drivers"] == 1 and workload["Accountant"]["open_handoffs"] == 1
+    assert workload["Other"]["assigned_drivers"] == 0
 
 
 def test_identifiers_reveal_is_audited_without_values_and_search_is_exact(client, panel, db_session):
@@ -262,16 +346,16 @@ def test_handoff_cannot_record_filing_without_the_tax_return(client, panel, db_s
     payload = {"expected_version": 1, "status": "filed", "reason": "External filing", "filing_reference": "synthetic-reference"}
     assert client.patch(path, headers=mutation(members["accountant"][1]), json=payload).status_code == 403
     # Driver sign-off lives on the return, so a handoff alone can never reach Filed.
-    assert client.patch(path, headers=mutation(members["senior_accountant"][1]), json=payload).status_code == 409
+    assert client.patch(path, headers=mutation(members["admin"][1]), json=payload).status_code == 409
     ready = client.patch(path, headers=mutation(members["accountant"][1]), json={"expected_version": 1, "status": "ready_to_file", "reason": "Reviewed all supplied evidence"})
     assert ready.status_code == 200, ready.text
-    assert client.patch(path, headers=mutation(members["senior_accountant"][1]), json={**payload, "expected_version": 2}).status_code == 409
+    assert client.patch(path, headers=mutation(members["admin"][1]), json={**payload, "expected_version": 2}).status_code == 409
     assert {event["after"]["status"] for event in ready.json()["workflow_events"] if event["action"] == "handoff_updated"} == {"ready_to_file"}
     assert all(event["actor_name"] and event["created_at"] for event in ready.json()["workflow_events"])
     overview = client.post(f"/api/v1/staff/drivers/{owner}/overview", headers=members["accountant"][1], json={"tax_year": "2026-27"})
     assert overview.json()["handoffs"][0]["status"] == "ready_to_file"
     request_id = str(uuid4())
-    response = client.post(path, headers={**members["support"][1], "X-Request-ID": request_id}, json={})
+    response = client.post(path, headers={**members["other"][1], "X-Request-ID": request_id}, json={})
     assert response.headers["X-Request-ID"] == request_id
 
 

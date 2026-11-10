@@ -23,8 +23,12 @@ staff_bearer = HTTPBearer(auto_error=False, scheme_name="StaffBearer")
 
 
 def identity(db, staff):
-    return {"id": staff.id, "name": staff.name, "role": staff.role, "team_id": staff.team_id,
-            "email": db.get(User, staff.id).email}
+    return {"id": staff.id, "name": staff.name, "role": staff.role, "email": db.get(User, staff.id).email}
+
+
+def require_admin(staff):
+    if staff.role != "admin":
+        raise HTTPException(403, "Administrator access required")
 
 
 def add_audit(db, staff, action, driver_id=None, resource_id=None, before=None, after=None):
@@ -35,7 +39,7 @@ def add_audit(db, staff, action, driver_id=None, resource_id=None, before=None, 
 
 def staff_token(staff, device, settings):
     now = utc_now()
-    return jwt.encode({"sub": str(staff.id), "sid": str(device.id), "jti": str(uuid4()),
+    return jwt.encode({"sub": str(staff.id), "sid": str(device.id), "jti": str(uuid4()), "role": staff.role,
         "type": "staff_access", "iss": settings.jwt_issuer, "aud": settings.jwt_audience + ":staff",
         "iat": now, "exp": now + timedelta(minutes=settings.access_token_expire_minutes)},
         settings.jwt_secret_key.get_secret_value(), algorithm=ALGORITHM)
@@ -49,7 +53,7 @@ def current_staff(credentials: Annotated[HTTPAuthorizationCredentials | None, De
     try:
         claims = jwt.decode(credentials.credentials, settings.jwt_secret_key.get_secret_value(), algorithms=[ALGORITHM],
             issuer=settings.jwt_issuer, audience=settings.jwt_audience + ":staff",
-            options={"require": ["sub", "sid", "exp", "iat", "jti", "type"]})
+            options={"require": ["sub", "sid", "exp", "iat", "jti", "type", "role"]})
         if claims["type"] != "staff_access":
             raise ValueError()
         subject, device_id = UUID(claims["sub"]), UUID(claims["sid"])
@@ -58,7 +62,8 @@ def current_staff(credentials: Annotated[HTTPAuthorizationCredentials | None, De
     lock_user(db, subject)
     staff = db.get(StaffAccount, subject, populate_existing=True)
     device = db.get(DeviceSession, device_id, populate_existing=True)
-    if not staff or not staff.active or not device or device.user_id != subject or device.revoked_at or device.expires_at <= utc_now():
+    # A token is bound to the portal it was issued for; a role change needs a new sign-in.
+    if not staff or not staff.active or claims["role"] != staff.role or not device or device.user_id != subject or device.revoked_at or device.expires_at <= utc_now():
         raise invalid
     if (utc_now() - device.last_used_at).total_seconds() >= IDLE_SECONDS:
         device.revoked_at = utc_now()
@@ -78,18 +83,13 @@ def driver_scope(staff):
     # Completed deletions stay locked for retention but leave the working directory.
     base = select(User.id).where(~User.id.in_(select(StaffAccount.id)), ~User.id.in_(select(PrivacyRequest.owner_id).where(
         PrivacyRequest.kind == "deletion", PrivacyRequest.status == "completed")))
-    if staff.role == "accountant":
+    # Admins see every driver; accountants only the drivers assigned to them.
+    if staff.role != "admin":
         base = base.where(User.id.in_(select(DriverAssignment.driver_id).where(DriverAssignment.accountant_id == staff.id)))
-    elif staff.role == "senior_accountant":
-        base = base.where(User.id.in_(select(DriverAssignment.driver_id).join(StaffAccount,
-            DriverAssignment.accountant_id == StaffAccount.id).where(StaffAccount.team_id == staff.team_id,
-                StaffAccount.team_id.is_not(None))))
     return base
 
 
 def require_driver(db, staff, driver_id, write=False):
-    if write and staff.role == "support":
-        raise HTTPException(403, "Support has read-only financial access")
     user = db.scalar(select(User).where(User.id == driver_id, User.id.in_(driver_scope(staff))))
     if not user:
         raise HTTPException(404, "Driver not found or outside your assignment")

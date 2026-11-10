@@ -5,10 +5,11 @@ test('React profiler settles without an idle update loop', async ({ page }) => {
   const errors: string[] = [], diagnostics: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); if (message.text().startsWith('[render diagnostic]')) diagnostics.push(message.text()); });
-  await page.goto('/login');
+  await page.goto('/admin/login');
   await page.getByLabel('Work email').fill('admin-flow@browser.example');
   await page.getByLabel('Password', { exact: true }).fill(process.env.PANEL_TEST_PASSWORD!);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await page.getByRole('link', { name: 'Handoff queue', exact: true }).click();
   await expect(page.getByText('Browser Driver', { exact: true }).first()).toBeVisible();
   await page.getByRole('link', { name: /Browser Driver/ }).click();
   await expect(page.getByRole('heading', { name: 'Browser Driver' })).toBeVisible();

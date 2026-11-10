@@ -3,12 +3,14 @@ import AxeBuilder from '@axe-core/playwright';
 // Only the owned disposable-PostgreSQL harness supplies these synthetic identities.
 test.skip(!process.env.PANEL_TEST_PASSWORD, 'Run through tests/test_panel_browser.py to provision isolated synthetic records.');
 
+// Synthetic admins are named admin-*; each role has its own sign-in page.
 async function login(page: Page, name: string) {
-  await page.goto('/login');
+  const admin = name.startsWith('admin');
+  await page.goto(admin ? '/admin/login' : '/login');
   await page.getByLabel('Work email').fill(`${name}@browser.example`);
   await page.getByLabel('Password', { exact: true }).fill(process.env.PANEL_TEST_PASSWORD!);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('heading', { name: /^Welcome,/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: admin ? 'Practice overview' : /^Welcome,/ })).toBeVisible();
   // The panel opens on the year due next; this synthetic data sits in 2026-27.
   await page.getByRole('combobox', { name: 'Workspace tax year' }).click();
   await page.getByTitle('Tax year 2026-27').click();
@@ -18,18 +20,17 @@ test('staff login, scoped dashboard, queue, directory and every profile tab', as
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await login(page, 'admin-flow');
-  await expect(page.getByText('Browser Driver', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Needs an admin' })).toBeVisible();
   expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations.map(item => ({ id: item.id, nodes: item.nodes.map(node => ({ target: node.target, detail: node.failureSummary })) }))).toEqual([]);
-  await page.getByRole('button', { name: 'Open handoff queue' }).click();
+  await page.getByRole('link', { name: 'Handoff queue', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Handoff queue' })).toBeVisible();
+  await expect(page.getByText('Browser Driver', { exact: true }).first()).toBeVisible();
   expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()).violations.map(item => ({ id: item.id, nodes: item.nodes.map(node => ({ target: node.target, detail: node.failureSummary })) }))).toEqual([]);
   await page.getByLabel('Select row 1').check();
   await page.getByRole('button', { name: 'Assign accountant' }).click();
   const accountant = page.getByRole('combobox', { name: /Accountant$/ });
   await accountant.click();
-  await expect(page.getByText('accountant-receipt · Accountant', { exact: true })).toBeVisible();
-  await accountant.press('ArrowDown');
-  await accountant.press('Enter');
+  await page.locator('.ant-select-item-option[title="accountant-receipt · Accountant"]').click();
   await page.getByLabel('Reason for assignment').fill('Confirm synthetic workload assignment');
   await page.getByRole('button', { name: 'OK', exact: true }).click();
   await page.getByRole('button', { name: 'Confirm reassignment', exact: true }).click();
@@ -85,25 +86,18 @@ test('receipt corrections save drafts, approval posts and exact reversal restore
   await expect(page.getByText('Confirmation reversed. Review the corrected category and confirm again.')).toBeVisible();
 });
 
-test('support remains read-only but can create an internal ticket', async ({ page }) => {
-  await login(page, 'support-flow');
+test('an accountant sees only assigned drivers and is kept out of the admin console', async ({ page }) => {
+  await login(page, 'unassigned-flow');
   await page.getByRole('link', { name: 'Driver directory', exact: true }).click();
-  await page.getByRole('link', { name: /Browser Driver/ }).click();
-  await expect(page.getByRole('button', { name: 'Reveal UTR' })).toHaveCount(0);
-  await page.getByRole('tab', { name: 'Expenses', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Recategorise' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Export CSV' })).toHaveCount(0);
-  await page.getByRole('tab', { name: 'Internal notes', exact: true }).click();
-  await page.getByLabel('Note or ticket').fill('Synthetic support note');
-  await page.getByRole('button', { name: 'Save entry' }).click();
-  await expect(page.getByText('Synthetic support note', { exact: true })).toBeVisible();
-  await page.getByRole('tab', { name: 'Messages', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Send message' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Driver directory' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Browser Driver/ })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Staff accounts' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Drivers & assignment' })).toHaveCount(0);
 });
 
 test('saved views, CSV, tablet, dark mode and WCAG checks', async ({ page }) => {
   await login(page, 'admin-accessibility');
-  await page.getByRole('link', { name: 'Driver directory', exact: true }).click();
+  await page.getByRole('link', { name: 'Drivers & assignment', exact: true }).click();
   await page.getByRole('button', { name: 'Save current view' }).click();
   await page.getByLabel('View name').fill('Synthetic saved view');
   await page.getByRole('button', { name: 'OK', exact: true }).click();

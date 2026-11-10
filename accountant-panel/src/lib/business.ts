@@ -3,7 +3,7 @@ export const statusGlossary: Record<string, { meaning: string; owner: string; tr
   in_review: { meaning: 'Books and evidence are being checked.', owner: 'Assigned accountant', trigger: 'Request missing evidence or mark ready after review' },
   waiting_on_driver: { meaning: 'Review is waiting for driver information.', owner: 'Driver, followed by accountant', trigger: 'Accountant resumes review when evidence arrives' },
   ready_to_file: { meaning: 'Accountant has marked the handoff ready.', owner: 'Assigned accountant', trigger: 'Open the tax return, get driver sign-off, then record the filing' },
-  filed: { meaning: 'A completed external filing has been recorded on the tax return.', owner: 'Senior accountant or admin', trigger: 'No automatic next step; reopen the tax return to amend' },
+  filed: { meaning: 'A completed external filing has been recorded on the tax return.', owner: 'Admin', trigger: 'No automatic next step; reopen the tax return to amend' },
   draft: { meaning: 'Posting is unconfirmed and excluded from totals.', owner: 'Driver or accountant', trigger: 'Review and confirm its originating record' },
   pending: { meaning: 'Evidence or scan is awaiting processing/review.', owner: 'Scanning service, then reviewer', trigger: 'Scan completes or reviewer records a decision' },
   confirmed: { meaning: 'Canonical posting is included in confirmed totals.', owner: 'Reviewer', trigger: 'Correction requires reversal before another confirmation' },
@@ -25,7 +25,7 @@ export const statusGlossary: Record<string, { meaning: string; owner: string; tr
   overdue: { meaning: 'Supplied-year deadline passed and handoff is not filed.', owner: 'Assigned accountant', trigger: 'Complete review and record external filing' },
   in_preparation: { meaning: 'The accountant is reviewing the books and adjustments.', owner: 'Assigned accountant', trigger: 'Clear the checklist, then send to the driver for sign-off' },
   awaiting_driver: { meaning: 'A frozen review version is waiting for the driver.', owner: 'Driver', trigger: 'Driver approves, or asks for changes' },
-  driver_approved: { meaning: 'The driver approved this exact review version.', owner: 'Senior accountant or admin', trigger: 'File externally, then record the reference' },
+  driver_approved: { meaning: 'The driver approved this exact review version.', owner: 'Admin', trigger: 'File externally, then record the reference' },
   approved: { meaning: 'A rate has been checked but does not apply yet.', owner: 'Administrator', trigger: 'Activate to apply it to open calculations' },
   retired: { meaning: 'A rate was replaced and no longer applies. Kept as history.', owner: 'Administrator', trigger: 'No next step' },
   received: { meaning: 'A privacy request is waiting for a response.', owner: 'Administrator', trigger: 'Respond within one month' },
@@ -45,7 +45,7 @@ export const statusGlossary: Record<string, { meaning: string; owner: string; tr
   not_required: { meaning: 'MTD does not apply on the stored figures.', owner: 'Driver', trigger: 'Rechecked when figures change' },
   voluntary: { meaning: 'The driver chose to join MTD early.', owner: 'Driver', trigger: 'Send quarterly updates' },
   exit_eligible: { meaning: 'Three years in a row at or below the threshold.', owner: 'Driver', trigger: 'The driver may choose to leave MTD' },
-  exempt: { meaning: 'An accountant confirmed an MTD exemption.', owner: 'Senior accountant', trigger: 'Remove the exemption if circumstances change' },
+  exempt: { meaning: 'An accountant confirmed an MTD exemption.', owner: 'Admin', trigger: 'Remove the exemption if circumstances change' },
   ceased: { meaning: 'The driver has stopped trading.', owner: 'Accountant', trigger: 'Send the final update' },
 };
 export const returnStatuses = ['in_preparation', 'awaiting_driver', 'driver_approved', 'filed'] as const;

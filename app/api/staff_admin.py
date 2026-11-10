@@ -16,24 +16,21 @@ from app.models import DeviceSession, User
 from app.models.auth import ExternalIdentity
 from app.models.books import (Notification, PhoneIdentity, PrivacyRequest, Profile, Receipt, SupportRecord, Transaction)
 from app.models.common import utc_now
-from app.models.staff import AiFeedback, DriverAssignment, StaffAccount, StaffAudit, StaffTeam, TaxRate
+from app.models.books import TaxReturn
+from app.models.staff import AccountantHandoff, AiFeedback, DriverAssignment, StaffAccount, StaffAudit, TaxRate
 from app.schemas.books import Body, Version, Versioned, Year
-from app.schemas.staff import TableQuery, YearInput
+from app.schemas.staff import StaffRole, TableQuery, YearInput
 from app.schemas.user import normalize_email
 from app.services.books import CATEGORIES, check_version, history, owned, profile, rows, tax_dates, wire, write
 from app.services.files import receipt_wire
-from app.services.staff import (StaffAuth, add_audit, driver_name, driver_scope, identity, paginate, query_filters, require_driver)
+from app.services.staff import (StaffAuth, add_audit, driver_name, driver_scope, identity, paginate, query_filters,
+    require_admin, require_driver)
 from app.services.ledger import mileage_deduction
-from app.services.tax import REGIONS, RULE_CODES, UK_SOURCES, builtin_values, calculate, rule_set, today
+from app.services.tax import REGIONS, RULE_CODES, UK_SOURCES, builtin_values, calculate, deadlines, rule_set, today
 
 router = APIRouter(prefix="/staff", tags=["staff administration"])
 driver_router = APIRouter(tags=["driver privacy requests"])
 RETENTION_YEARS = 5
-
-
-def require_admin(staff):
-    if staff.role != "admin":
-        raise HTTPException(403, "Administrator access required")
 
 
 def staff_user(db, staff):
@@ -131,33 +128,35 @@ def ai_feedback(receipt_id: UUID, data: FeedbackInput, auth: StaffAuth, db: Sess
 class StaffCreate(Body):
     email: EmailStr
     name: str = Field(min_length=1, max_length=100)
-    role: Literal["accountant", "senior_accountant", "admin", "support"]
-    team_id: UUID | None = None
+    role: StaffRole
     password: SecretStr = Field(min_length=12, max_length=128)
 
 
 class StaffPatch(Versioned):
     name: str | None = Field(default=None, min_length=1, max_length=100)
-    role: Literal["accountant", "senior_accountant", "admin", "support"] | None = None
-    team_id: UUID | None = None
+    role: StaffRole | None = None
     active: bool | None = None
     reason: str = Field(min_length=3, max_length=500)
 
 
-class TeamInput(Body):
-    name: str = Field(min_length=1, max_length=100)
+class PasswordReset(Versioned):
+    password: SecretStr = Field(min_length=12, max_length=128)
+    reason: str = Field(min_length=3, max_length=500)
+
+
+def assigned_count(db, staff_id):
+    return db.scalar(select(func.count()).select_from(DriverAssignment).where(DriverAssignment.accountant_id == staff_id))
 
 
 def staff_wire(db, row):
-    team = db.get(StaffTeam, row.team_id) if row.team_id else None
     last_seen = db.scalar(select(func.max(DeviceSession.last_used_at)).where(DeviceSession.user_id == row.id))
-    assigned = db.scalar(select(func.count()).select_from(DriverAssignment).where(DriverAssignment.accountant_id == row.id))
-    return {**identity(db, row), "active": row.active, "version": row.version, "team_name": team.name if team else None,
-        "last_seen_at": last_seen, "assigned_drivers": assigned}
+    return {**identity(db, row), "active": row.active, "version": row.version,
+        "last_seen_at": last_seen, "assigned_drivers": assigned_count(db, row.id)}
 
 
-def needs_team(role):
-    return role in {"accountant", "senior_accountant"}
+def end_sessions(db, staff_id):
+    # Access must end at once rather than waiting for the token to expire.
+    db.execute(update(DeviceSession).where(DeviceSession.user_id == staff_id, DeviceSession.revoked_at.is_(None)).values(revoked_at=utc_now()))
 
 
 @router.post("/users/search")
@@ -180,25 +179,21 @@ def create_user(data: StaffCreate, auth: StaffAuth, db: SessionDep, request: Req
     staff = auth[0]
     require_admin(staff)
     email = normalize_email(str(data.email))
-    if needs_team(data.role) and not data.team_id:
-        raise HTTPException(422, "Accountants must belong to a team")
     hashed = password_hash.hash(data.password.get_secret_value())
     def apply():
         # Existing driver identities are never promoted implicitly.
         if db.scalar(select(User).where(User.email == email)):
             raise HTTPException(409, "This email already has an account")
-        if data.team_id and not db.get(StaffTeam, data.team_id):
-            raise HTTPException(422, "Team not found")
         user = User(email=email, password_hash=hashed, display_name=data.name)
         db.add(user)
         db.flush()
-        row = StaffAccount(id=user.id, name=data.name, role=data.role, team_id=data.team_id, totp_secret=b"", last_totp_counter=-1)
+        row = StaffAccount(id=user.id, name=data.name, role=data.role, totp_secret=b"", last_totp_counter=-1)
         db.add(row)
         db.flush()
-        add_audit(db, staff, "staff_created", resource_id=row.id, after={"role": data.role, "team_id": str(data.team_id) if data.team_id else None})
+        add_audit(db, staff, "staff_created", resource_id=row.id, after={"role": data.role, "name": data.name})
         return staff_wire(db, row)
     # The fingerprint must not contain the password.
-    return write(db, staff_user(db, staff), request, key, {"email": email, "name": data.name, "role": data.role, "team_id": str(data.team_id) if data.team_id else None}, apply)
+    return write(db, staff_user(db, staff), request, key, {"email": email, "name": data.name, "role": data.role}, apply)
 
 
 @router.patch("/users/{id}")
@@ -223,43 +218,94 @@ def update_user(id: UUID, data: StaffPatch, auth: StaffAuth, db: SessionDep, req
                 raise HTTPException(409, "At least one active administrator must remain")
         if changes.get("active") is False and row.id == staff.id:
             raise HTTPException(409, "You cannot deactivate your own account")
-        role = changes.get("role", row.role)
-        team_id = changes.get("team_id", row.team_id)
-        if needs_team(role) and not team_id:
-            raise HTTPException(422, "Accountants must belong to a team")
-        if team_id and not db.get(StaffTeam, team_id):
-            raise HTTPException(422, "Team not found")
+        leaves_accountant_work = row.role == "accountant" and (changes.get("active") is False or changes.get("role", "accountant") != "accountant")
+        drivers = assigned_count(db, row.id)
+        if leaves_accountant_work and drivers:
+            # Otherwise those drivers would sit with someone who can no longer work on them.
+            raise HTTPException(409, f"Move this accountant's {drivers} assigned driver(s) to another accountant first")
         for field, value in changes.items():
             setattr(row, field, value)
         row.version += 1
         if changes.get("active") is False or "role" in changes:
-            # Access must end at once rather than waiting for the token to expire.
-            db.execute(update(DeviceSession).where(DeviceSession.user_id == row.id, DeviceSession.revoked_at.is_(None)).values(revoked_at=utc_now()))
+            end_sessions(db, row.id)
         db.flush()
         add_audit(db, staff, "staff_updated", resource_id=row.id, before=before, after={**staff_wire(db, row), "reason": data.reason})
         return staff_wire(db, row)
     return write(db, staff_user(db, staff), request, key, {**data.model_dump(mode="json"), "id": str(id)}, apply)
 
 
-@router.post("/teams/search")
-def teams(auth: StaffAuth, db: SessionDep):
-    require_admin(auth[0])
-    return {"items": [{"id": row.id, "name": row.name} for row in db.scalars(select(StaffTeam).order_by(StaffTeam.name))]}
-
-
-@router.post("/teams", status_code=201)
-def create_team(data: TeamInput, auth: StaffAuth, db: SessionDep, request: Request, key: Key):
+@router.post("/users/{id}/password")
+def reset_staff_password(id: UUID, data: PasswordReset, auth: StaffAuth, db: SessionDep, request: Request, key: Key):
+    """Set a new first password, for when someone is locked out and email recovery is not set up."""
     staff = auth[0]
     require_admin(staff)
+    if id == staff.id:
+        raise HTTPException(409, "Use password recovery to change your own password")
+    hashed = password_hash.hash(data.password.get_secret_value())
     def apply():
-        if db.scalar(select(StaffTeam).where(StaffTeam.name == data.name)):
-            raise HTTPException(409, "A team with this name already exists")
-        row = StaffTeam(name=data.name)
-        db.add(row)
+        row = db.get(StaffAccount, id, populate_existing=True)
+        if not row:
+            raise HTTPException(404, "Staff member not found")
+        check_version(row, data.expected_version)
+        db.get(User, row.id).password_hash = hashed
+        row.version += 1
+        end_sessions(db, row.id)
         db.flush()
-        add_audit(db, staff, "team_created", resource_id=row.id, after={"name": data.name})
-        return {"id": row.id, "name": row.name}
-    return write(db, staff_user(db, staff), request, key, data.model_dump(), apply)
+        add_audit(db, staff, "staff_password_reset", resource_id=row.id, after={"reason": data.reason})
+        return staff_wire(db, row)
+    # The fingerprint must not contain the password.
+    return write(db, staff_user(db, staff), request, key, {"id": str(id), "expected_version": data.expected_version, "reason": data.reason}, apply)
+
+
+# Admin overview ------------------------------------------------------------
+
+def counts(db, column, query):
+    return dict(db.execute(query.with_only_columns(column, func.count()).group_by(column)).all())
+
+
+@router.post("/admin/overview")
+def admin_overview(data: YearInput, auth: StaffAuth, db: SessionDep):
+    """Practice-wide numbers for the admin console: people, work waiting and things only an admin can do."""
+    staff = auth[0]
+    require_admin(staff)
+    tax_dates(data.tax_year)
+    drivers = driver_scope(staff)
+    assigned = select(DriverAssignment.driver_id)
+    driver_total = db.scalar(select(func.count()).select_from(drivers.subquery()))
+    unassigned = db.scalar(select(func.count()).select_from(drivers.where(~User.id.in_(assigned)).subquery()))
+    staff_counts = dict(db.execute(select(StaffAccount.role, func.count()).where(StaffAccount.active.is_(True)).group_by(StaffAccount.role)).all())
+    inactive = db.scalar(select(func.count()).select_from(StaffAccount).where(StaffAccount.active.is_(False)))
+    open_handoff = (AccountantHandoff.status != "filed") & ((AccountantHandoff.tax_year == data.tax_year) | AccountantHandoff.tax_year.is_(None))
+    handoffs = counts(db, AccountantHandoff.status, select(AccountantHandoff).where(AccountantHandoff.driver_id.in_(drivers), open_handoff))
+    unassigned_handoffs = db.scalar(select(func.count()).select_from(AccountantHandoff).where(
+        AccountantHandoff.driver_id.in_(drivers), open_handoff, ~AccountantHandoff.driver_id.in_(assigned)))
+    returns = counts(db, TaxReturn.status, select(TaxReturn).where(TaxReturn.owner_id.in_(drivers), TaxReturn.tax_year == data.tax_year))
+    privacy_open = PrivacyRequest.status.in_(["received", "in_progress"])
+    privacy = {"open": db.scalar(select(func.count()).select_from(PrivacyRequest).where(privacy_open)),
+        "overdue": db.scalar(select(func.count()).select_from(PrivacyRequest).where(privacy_open, PrivacyRequest.due_on < today()))}
+    rates = counts(db, TaxRate.status, select(TaxRate).where(TaxRate.status.in_(["draft", "approved"])))
+    ai_open = db.scalar(select(func.count()).select_from(Receipt).where(Receipt.owner_id.in_(drivers), extracted(),
+        ~Receipt.id.in_(select(AiFeedback.receipt_id))))
+    workload = []
+    for row in db.scalars(select(StaffAccount).where(StaffAccount.role == "accountant").order_by(StaffAccount.active.desc(), StaffAccount.name)):
+        theirs = select(DriverAssignment.driver_id).where(DriverAssignment.accountant_id == row.id)
+        workload.append({"id": row.id, "name": row.name, "active": row.active, "assigned_drivers": assigned_count(db, row.id),
+            "open_handoffs": db.scalar(select(func.count()).select_from(AccountantHandoff).where(AccountantHandoff.driver_id.in_(theirs), open_handoff)),
+            "returns_in_progress": db.scalar(select(func.count()).select_from(TaxReturn).where(TaxReturn.owner_id.in_(theirs),
+                TaxReturn.tax_year == data.tax_year, TaxReturn.status != "filed"))})
+    due = deadlines(data.tax_year)[0]
+    result = {"tax_year": data.tax_year, "as_of": utc_now(),
+        "drivers": {"total": driver_total, "unassigned": unassigned},
+        "staff": {"admins": staff_counts.get("admin", 0), "accountants": staff_counts.get("accountant", 0), "inactive": inactive},
+        "handoffs": {"open": sum(handoffs.values()), "unassigned": unassigned_handoffs,
+            **{status: handoffs.get(status, 0) for status in ("new", "in_review", "waiting_on_driver", "ready_to_file")}},
+        "returns": {status: returns.get(status, 0) for status in ("in_preparation", "awaiting_driver", "driver_approved", "filed")},
+        "privacy": privacy, "rates": {"draft": rates.get("draft", 0), "approved": rates.get("approved", 0)},
+        "ai_reviews_open": ai_open, "deadline": {**due, "days_remaining": (due["due_on"] - today()).days},
+        "workload": workload}
+    add_audit(db, staff, "admin_overview_view")
+    db.commit()
+    return result
 
 
 @router.post("/audit/search")

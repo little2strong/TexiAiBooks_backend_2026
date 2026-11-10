@@ -75,14 +75,12 @@ def test_adjustment_changes_estimate_but_never_the_driver_record(client, db_sess
     assert post_return(client, members, voided.json(), "adjustments", target="capital_allowances", amount_pence=-5, reason="Wrong sign").status_code == 422
 
 
-def test_support_and_outside_staff_cannot_touch_returns(client, driver_books):
+def test_outside_staff_cannot_touch_returns(client, driver_books):
     members, owner, _, _ = driver_books
-    assert client.post("/api/v1/staff/returns", headers=mutation(members["support"][1]), json={"driver_id": str(owner), "tax_year": YEAR}).status_code == 403
     assert client.post("/api/v1/staff/returns", headers=mutation(members["other"][1]), json={"driver_id": str(owner), "tax_year": YEAR}).status_code == 404
     row = open_return(client, members, owner)
     assert client.get("/api/v1/staff/returns/" + row["id"], headers=members["other"][1]).status_code == 404
-    assert client.get("/api/v1/staff/returns/" + row["id"], headers=members["support"][1]).status_code == 200
-    assert post_return(client, members, row, "adjustments", role="support", target="income", amount_pence=5, reason="Not allowed").status_code == 403
+    assert post_return(client, members, row, "adjustments", role="other", target="income", amount_pence=5, reason="Not allowed").status_code == 404
     assert client.post("/api/v1/staff/returns/search", headers=members["other"][1], json={}).json()["total"] == 0
 
 
@@ -111,12 +109,12 @@ def test_full_flow_signoff_filing_freeze_and_reopen(client, db_session, driver_b
     db_session.add(AccountantHandoff(id=request.id, driver_id=owner, tax_year=YEAR)); db_session.commit()
     row = open_return(client, members, owner)
     # No filing without the driver's sign-off.
-    assert post_return(client, members, row, "file", role="senior_accountant", filing_reference="HMRC-123", reason="Filed").status_code == 409
+    assert post_return(client, members, row, "file", role="admin", filing_reference="HMRC-123", reason="Filed").status_code == 409
     approved = signed_off(client, members, auth, row)
     assert approved["status"] == "driver_approved"
-    current = client.get("/api/v1/staff/returns/" + row["id"], headers=members["senior_accountant"][1]).json()
+    current = client.get("/api/v1/staff/returns/" + row["id"], headers=members["admin"][1]).json()
     assert post_return(client, members, current, "file", filing_reference="HMRC-123", reason="Filed").status_code == 403
-    filed = post_return(client, members, current, "file", role="senior_accountant", filing_reference="HMRC-123", reason="Filed online")
+    filed = post_return(client, members, current, "file", role="admin", filing_reference="HMRC-123", reason="Filed online")
     assert filed.status_code == 200, filed.text
     filed = filed.json()
     assert filed["status"] == "filed" and filed["filed_by_name"]
@@ -145,10 +143,10 @@ def test_full_flow_signoff_filing_freeze_and_reopen(client, db_session, driver_b
         assert active.status_code == 200, active.text
     assert client.get(f"/api/v1/tax/estimate?tax_year={YEAR}", headers=auth).json()["class4_pence"] == frozen_tax["class4_pence"]
 
-    # Reopening needs seniority, keeps the old snapshot, then the new rate applies.
-    current = client.get("/api/v1/staff/returns/" + row["id"], headers=members["senior_accountant"][1]).json()
+    # Reopening needs an admin, keeps the old snapshot, then the new rate applies.
+    current = client.get("/api/v1/staff/returns/" + row["id"], headers=members["admin"][1]).json()
     assert post_return(client, members, current, "reopen", reason="Amendment").status_code == 403
-    reopened = post_return(client, members, current, "reopen", role="senior_accountant", reason="HMRC amendment")
+    reopened = post_return(client, members, current, "reopen", role="admin", reason="HMRC amendment")
     assert reopened.status_code == 200, reopened.text
     reopened = reopened.json()
     assert reopened["status"] == "in_preparation" and reopened["earlier_snapshots"][0]["filing_reference"] == "HMRC-123"
@@ -163,8 +161,8 @@ def test_books_changed_after_signoff_require_a_new_version(client, driver_books)
     row = open_return(client, members, owner)
     signed_off(client, members, auth, row)
     income(client, auth, business, pence=5000, on="2025-11-01")
-    current = client.get("/api/v1/staff/returns/" + row["id"], headers=members["senior_accountant"][1]).json()
-    stale = post_return(client, members, current, "file", role="senior_accountant", filing_reference="HMRC-9", reason="Filed")
+    current = client.get("/api/v1/staff/returns/" + row["id"], headers=members["admin"][1]).json()
+    stale = post_return(client, members, current, "file", role="admin", filing_reference="HMRC-9", reason="Filed")
     assert stale.status_code == 409 and "changed" in stale.json()["detail"]
 
 
@@ -190,7 +188,7 @@ def test_driver_can_request_changes_and_only_on_the_current_version(client, driv
 def test_rate_validation_and_admin_only(client, driver_books):
     members, *_ = driver_books
     base = {"tax_year": "2027-28", "region": "england_wales_ni", "code": "class4", "official_url": SPEC_URL, "reason": "Next year"}
-    assert client.post("/api/v1/staff/rates", headers=mutation(members["senior_accountant"][1]), json={**base, "value": {}}).status_code == 403
+    assert client.post("/api/v1/staff/rates", headers=mutation(members["accountant"][1]), json={**base, "value": {}}).status_code == 403
     assert client.post("/api/v1/staff/rates", headers=mutation(members["admin"][1]), json={**base, "value": {"lower_pence": 1}}).status_code == 422
     assert client.post("/api/v1/staff/rates", headers=mutation(members["admin"][1]), json={**base, "code": "nonsense", "value": {}}).status_code == 422
     assert client.post("/api/v1/staff/rates", headers=mutation(members["admin"][1]), json={**base, "code": "vat", "value": {"threshold_pence": 1}}).status_code == 422
@@ -228,7 +226,7 @@ def test_mtd_threshold_edit_changes_driver_status_with_audit(client, db_session,
     prompted = client.put("/api/v1/tax-history/2024-25", headers=headers(auth), json={"gross_se_income_pence": 1000000, "profit_pence": 1000000})
     assert prompted.json()["prompts"] == ["confirm_takings_before_costs"]
     assert client.post(f"/api/v1/staff/drivers/{owner}/mtd/override", headers=mutation(members["accountant"][1]), json={"exempt": True, "reason": "Digitally excluded"}).status_code == 403
-    override = client.post(f"/api/v1/staff/drivers/{owner}/mtd/override", headers=mutation(members["senior_accountant"][1]), json={"exempt": True, "reason": "Digitally excluded"})
+    override = client.post(f"/api/v1/staff/drivers/{owner}/mtd/override", headers=mutation(members["admin"][1]), json={"exempt": True, "reason": "Digitally excluded"})
     assert override.json()["status"] == "exempt"
     view = client.post(f"/api/v1/staff/drivers/{owner}/mtd", headers=members["accountant"][1])
     assert view.status_code == 200 and view.json()["status"] == "exempt" and len(view.json()["history"]) == 2
@@ -335,16 +333,14 @@ def test_user_admin_guards(client, driver_books):
     members, *_ = driver_books
     admin = members["admin"][1]
     assert client.post("/api/v1/staff/users/search", headers=members["accountant"][1], json={"sort": "name"}).status_code == 403
-    assert client.post("/api/v1/staff/users/search", headers=admin, json={"sort": "name"}).json()["total"] == 5
-    team = client.post("/api/v1/staff/teams", headers=mutation(admin), json={"name": "North"}).json()
+    assert client.post("/api/v1/staff/users/search", headers=admin, json={"sort": "name"}).json()["total"] == 3
     new = {"email": "new.accountant@practice.example", "name": "New Accountant", "role": "accountant", "password": "long-enough-password-1"}
-    assert client.post("/api/v1/staff/users", headers=mutation(admin), json=new).status_code == 422
-    created = client.post("/api/v1/staff/users", headers=mutation(admin), json={**new, "team_id": team["id"]})
+    created = client.post("/api/v1/staff/users", headers=mutation(admin), json=new)
     assert created.status_code == 201, created.text
     assert "password" not in created.text.lower()
-    assert client.post("/api/v1/staff/users", headers=mutation(admin), json={**new, "team_id": team["id"]}).status_code == 409
+    assert client.post("/api/v1/staff/users", headers=mutation(admin), json=new).status_code == 409
     # A driver identity is never promoted implicitly.
-    assert client.post("/api/v1/staff/users", headers=mutation(admin), json={**new, "email": "driver@example.com", "team_id": team["id"]}).status_code == 409
+    assert client.post("/api/v1/staff/users", headers=mutation(admin), json={**new, "email": "driver@example.com"}).status_code == 409
     login = client.post("/api/v1/staff/auth/login", json={"email": new["email"], "password": new["password"]})
     assert login.status_code == 200
     bearer = {"Authorization": "Bearer " + login.json()["access_token"]}
@@ -354,7 +350,7 @@ def test_user_admin_guards(client, driver_books):
     assert client.get("/api/v1/staff/me", headers=bearer).status_code == 401
     admin_row = next(row for row in client.post("/api/v1/staff/users/search", headers=admin, json={"sort": "name", "page_size": 50}).json()["items"] if row["role"] == "admin")
     assert client.patch("/api/v1/staff/users/" + admin_row["id"], headers=mutation(admin), json={"expected_version": admin_row["version"], "active": False, "reason": "Self removal"}).status_code == 409
-    assert client.patch("/api/v1/staff/users/" + admin_row["id"], headers=mutation(admin), json={"expected_version": admin_row["version"], "role": "support", "reason": "Self demotion"}).status_code == 409
+    assert client.patch("/api/v1/staff/users/" + admin_row["id"], headers=mutation(admin), json={"expected_version": admin_row["version"], "role": "accountant", "reason": "Self demotion"}).status_code == 409
     assert client.post("/api/v1/staff/audit/search", headers=admin, json={"filters": {"action": "staff_updated"}}).json()["total"] == 1
 
 
@@ -376,7 +372,6 @@ def test_ai_feedback_is_recorded_and_scoped(client, db_session, driver_books):
     assert client.post("/api/v1/staff/ai-reviews/search", headers=members["other"][1], json={}).json()["total"] == 0
     path = f"/api/v1/staff/ai-reviews/{receipt.id}/feedback"
     assert client.post(path, headers=mutation(accountant), json={"verdict": "corrected", "reason": "Wrong"}).status_code == 422
-    assert client.post(path, headers=mutation(members["support"][1]), json={"verdict": "accepted"}).status_code == 403
     assert client.post(path, headers=mutation(members["other"][1]), json={"verdict": "accepted"}).status_code == 404
     saved = client.post(path, headers=mutation(accountant), json={"verdict": "corrected", "corrections": {"merchant": "Shell Heathrow"}, "reason": "OCR cut the name"})
     assert saved.status_code == 201, saved.text
@@ -396,7 +391,7 @@ def test_deletion_erases_personal_data_and_keeps_tax_records_locked(client, db_s
     assert "five years" in made.json()["notice"]
     assert client.post("/api/v1/me/privacy-requests", headers=headers(auth), json={"kind": "deletion"}).status_code == 409
     admin = members["admin"][1]
-    assert client.post("/api/v1/staff/privacy-requests/search", headers=members["senior_accountant"][1], json={}).status_code == 403
+    assert client.post("/api/v1/staff/privacy-requests/search", headers=members["accountant"][1], json={}).status_code == 403
     row = client.post("/api/v1/staff/privacy-requests/search", headers=admin, json={"filters": {"kind": "deletion"}}).json()["items"][0]
     assert row["driver_name"] == "Ali Khan" and row["overdue"] is False
     path = f"/api/v1/staff/privacy-requests/{row['id']}"

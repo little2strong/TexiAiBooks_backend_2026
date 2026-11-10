@@ -26,16 +26,16 @@ test('login, queue, driver and tax stay stable with slow API responses and norma
     new PerformanceObserver(list => { for (const entry of list.getEntries() as (PerformanceEntry & { hadRecentInput: boolean; value: number })[]) if (!entry.hadRecentInput) window.__layoutEntries.push({ time: entry.startTime, value: entry.value }); }).observe({ type: 'layout-shift', buffered: true });
   });
   await page.route('**/api/v1/staff/**', async route => {
-    if (/\/(dashboard|handoffs|drivers)(\/|$)/.test(new URL(route.request().url()).pathname)) await new Promise(resolve => setTimeout(resolve, 800));
+    if (/\/(dashboard|overview|handoffs|drivers)(\/|$)/.test(new URL(route.request().url()).pathname)) await new Promise(resolve => setTimeout(resolve, 800));
     await route.continue();
   });
-  await page.goto('/login');
+  await page.goto('/admin/login');
   await page.getByLabel('Work email').fill('admin-accessibility@browser.example');
   await page.getByLabel('Password', { exact: true }).fill(process.env.PANEL_TEST_PASSWORD!);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.getByRole('combobox', { name: 'Workspace tax year' }).click();
   await page.getByTitle('Tax year 2026-27').click();
-  await expect(page.getByText('Browser Driver', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Needs an admin' })).toBeVisible();
   // A fixed quiet observation interval includes late fonts/animations, after the ready assertion.
   await page.waitForTimeout(1200); await checkCLS(page);
   await page.getByRole('link', { name: 'Handoff queue', exact: true }).click();

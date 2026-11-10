@@ -3,13 +3,14 @@ import { createRoot } from "react-dom/client";
 import { Refine } from "@refinedev/core";
 import { QueryClient } from "@tanstack/react-query";
 import { App as AntApp, Result, Button, Skeleton } from "antd";
-import { BrowserRouter, Route, Routes, Link, useLocation } from "react-router-dom";
+import { BrowserRouter, Outlet, Route, Routes, Link, useLocation } from "react-router-dom";
 import { PanelBoundary } from './components/States';
 import interFont from '@fontsource/inter/files/inter-latin-400-normal.woff2?url';
 import { dataProvider, authProvider } from "./api/providers";
 import { can, type Action } from "./auth/permissions";
 import { session } from "./auth/session";
-import { ProtectedWorkspace } from "./auth/context";
+import { ProtectedWorkspace, RequireRole } from "./auth/context";
+import { AdminOverviewPage } from "./pages/AdminOverview";
 import { WorkspaceLayout } from "./components/WorkspaceLayout";
 import { Login } from "./pages/Login";
 import { DashboardPage } from "./pages/Dashboard";
@@ -90,6 +91,7 @@ function Panel() {
           >
             <RoutePanel><Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/admin/login" element={<Login portal="admin" />} />
               <Route
                 path="/styleguide"
                 element={
@@ -114,17 +116,20 @@ function Panel() {
                   </ProtectedWorkspace>
                 }
               >
-                <Route index element={<RoutePanel><DashboardPage /></RoutePanel>} />
+                <Route index element={<RequireRole role="accountant"><RoutePanel><DashboardPage /></RoutePanel></RequireRole>} />
                 <Route path="handoffs" element={<RoutePanel><HandoffsPage /></RoutePanel>} />
                 <Route path="drivers" element={<RoutePanel><DriversPage /></RoutePanel>} />
                 <Route path="drivers/:id" element={<RoutePanel><DriverProfilePage /></RoutePanel>} />
                 <Route path="returns" element={<RoutePanel><ReturnsPage /></RoutePanel>} />
                 <Route path="returns/:id" element={<RoutePanel><ReturnWorkspacePage /></RoutePanel>} />
                 <Route path="ai-review" element={<RoutePanel><AiReviewPage /></RoutePanel>} />
-                <Route path="admin/users" element={<RoutePanel><UsersPage /></RoutePanel>} />
-                <Route path="admin/rates" element={<RoutePanel><RatesPage /></RoutePanel>} />
-                <Route path="admin/privacy" element={<RoutePanel><PrivacyPage /></RoutePanel>} />
-                <Route path="admin/audit" element={<RoutePanel><AuditPage /></RoutePanel>} />
+                <Route path="admin" element={<RequireRole role="admin"><Outlet /></RequireRole>}>
+                  <Route index element={<RoutePanel><AdminOverviewPage /></RoutePanel>} />
+                  <Route path="users" element={<RoutePanel><UsersPage /></RoutePanel>} />
+                  <Route path="rates" element={<RoutePanel><RatesPage /></RoutePanel>} />
+                  <Route path="privacy" element={<RoutePanel><PrivacyPage /></RoutePanel>} />
+                  <Route path="audit" element={<RoutePanel><AuditPage /></RoutePanel>} />
+                </Route>
               </Route>
               <Route
                 path="*"

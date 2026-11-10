@@ -1,6 +1,8 @@
 import { session } from "../auth/session";
 import { decodeResponse } from './contracts';
 import type {
+  AdminOverview,
+  Role,
   Config,
   Dashboard,
   Overview,
@@ -119,12 +121,14 @@ export async function request<T>(
 const post = <T>(path: string, body: unknown, signal?: AbortSignal) =>
   request<T>(path, { method: "POST", body, signal });
 export const api = {
-  login: (email: string, password: string) =>
+  login: (email: string, password: string, portal: Role) =>
     request<StaffLoginResult>("/staff/auth/login", {
       method: "POST",
-      body: { email, password },
+      body: { email, password, portal },
       public: true,
     }),
+  adminOverview: (tax_year: string, signal?: AbortSignal) =>
+    post<AdminOverview>("/staff/admin/overview", { tax_year }, signal),
   logout: () => request<void>("/staff/auth/logout", { method: "POST" }),
   me: () => request<Staff>("/staff/me"),
   config: () => request<Config>("/staff/config"),

@@ -1,7 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, App, Button, Empty, Form, Input, Modal, Select, Space, Switch, Tag } from 'antd';
-import { Plus } from 'lucide-react';
+import { KeyRound, Plus } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { api, request } from '../api/client';
 import { useSession, useWorkspace } from '../auth/context';
@@ -13,8 +14,11 @@ import { QueryState } from '../components/States';
 import { StatusBadge } from '../components/StatusBadge';
 import { date, datetime, label, money } from '../lib/format';
 
-const roles = ['accountant', 'senior_accountant', 'admin', 'support'];
-const needsTeam = (role?: string) => role === 'accountant' || role === 'senior_accountant';
+const roles = [
+  { value: 'accountant', label: 'Accountant', help: 'Signs in at /login. Works on the drivers you assign to them.' },
+  { value: 'admin', label: 'Admin', help: 'Signs in at /admin/login. Sees every driver and manages the practice.' },
+];
+const roleOptions = roles.map(role => ({ value: role.value, label: <span className="role-option"><strong>{role.label}</strong><small>{role.help}</small></span> }));
 
 function AdminOnly({ children }: { children: ReactNode }) {
   const active = useSession();
@@ -28,52 +32,69 @@ function useRefresh() {
 
 function UsersContent() {
   const active = useSession()!;
+  const navigate = useNavigate();
   const [query, setQuery] = useState<TableQuery>({ ...initialQuery, sort: 'name', order: 'asc' });
-  const [dialog, setDialog] = useState<'create' | 'team' | null>(null);
+  const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<StaffRow | null>(null);
+  const [resetting, setResetting] = useState<StaffRow | null>(null);
   const [busy, setBusy] = useState(false);
   const [form] = Form.useForm();
-  const role = Form.useWatch('role', form);
   const refresh = useRefresh();
   const { message } = App.useApp();
-  const teams = useQuery({ queryKey: ['teams'], queryFn: () => request<{ items: { id: string; name: string }[] }>('/staff/teams/search', { method: 'POST' }) });
   const columns = useMemo<ColumnDef<StaffRow>[]>(() => [
-    { accessorKey: 'name', header: 'Name', cell: ({ row }) => <div className="record-description"><strong>{row.original.name}</strong><small>{row.original.email}</small></div> },
-    { accessorKey: 'role', header: 'Role', cell: ({ row }) => label(row.original.role) },
-    { id: 'team', header: 'Team', enableSorting: false, cell: ({ row }) => row.original.team_name || <span className="muted">No team</span> },
-    { id: 'drivers', header: 'Drivers', enableSorting: false, cell: ({ row }) => row.original.assigned_drivers },
+    { accessorKey: 'name', header: 'Name', cell: ({ row }) => <div className="record-description"><strong>{row.original.name}{row.original.id === active.staff.id && <Tag className="you-tag">You</Tag>}</strong><small>{row.original.email}</small></div> },
+    { accessorKey: 'role', header: 'Role', cell: ({ row }) => <Tag className={`role-tag role-${row.original.role}`}>{label(row.original.role)}</Tag> },
+    { id: 'drivers', header: 'Assigned drivers', enableSorting: false, cell: ({ row }) => row.original.role === 'admin' ? <span className="muted">All (admin)</span>
+      : row.original.assigned_drivers ? <Button size="small" type="link" onClick={() => navigate('/drivers', { state: { accountant_id: row.original.id } })}>{row.original.assigned_drivers} →</Button> : <span className="muted">None</span> },
     { id: 'seen', header: 'Last active', enableSorting: false, cell: ({ row }) => row.original.last_seen_at ? datetime(row.original.last_seen_at) : <span className="muted">Never</span> },
     { id: 'active', header: 'Access', enableSorting: false, cell: ({ row }) => <StatusBadge status={row.original.active ? 'active' : 'inactive'} /> },
-    { id: 'edit', header: '', enableSorting: false, cell: ({ row }) => <Button size="small" onClick={() => setEditing(row.original)}>Edit</Button> },
-  ], []);
-  const close = () => { setDialog(null); setEditing(null); };
+    { id: 'edit', header: '', enableSorting: false, cell: ({ row }) => <Space><Button size="small" onClick={() => setEditing(row.original)}>Edit</Button>
+      {row.original.id !== active.staff.id && <Button size="small" icon={<KeyRound />} onClick={() => setResetting(row.original)}>Reset password</Button>}</Space> },
+  ], [active.staff.id, navigate]);
+  const close = () => { setCreating(false); setEditing(null); setResetting(null); };
   const run = async (work: () => Promise<unknown>, done: string) => {
     setBusy(true);
-    try { await work(); await refresh(); await teams.refetch(); void message.success(done); close(); }
+    try { await work(); await refresh(); void message.success(done); close(); }
     catch (error) { void message.error((error as Error).message); }
     finally { setBusy(false); }
   };
-  const teamField = <Form.Item name="team_id" label="Team" rules={[{ required: needsTeam(role), message: 'Accountants must belong to a team' }]}><Select allowClear options={teams.data?.items.map(team => ({ value: team.id, label: team.name }))} placeholder="Choose a team" /></Form.Item>;
-  return <><div className="page-heading"><div><span className="eyebrow">ADMINISTRATION</span><h1>Users & roles</h1><p>Add staff, set what they can see and end access straight away when someone leaves.</p></div>
-    <div className="page-actions"><Button onClick={() => setDialog('team')}>New team</Button><Button type="primary" icon={<Plus />} onClick={() => setDialog('create')}>Add staff member</Button></div></div>
-    <DataTable<StaffRow> title="Staff" resource="users" query={query} onQuery={setQuery} columns={columns} exportable={false} />
-    <Modal title="Add a staff member" open={dialog === 'create'} onCancel={close} onOk={() => form.submit()} confirmLoading={busy} okText="Create account" destroyOnHidden>
-      <Form form={form} layout="vertical" preserve={false} initialValues={{ role: 'accountant' }} onFinish={values => void run(() => api.mutate('/users', { ...values, team_id: values.team_id || null }), 'Staff account created.')}>
+  const setFilter = (name: string, value?: string) => {
+    const filters = { ...query.filters };
+    if (value) filters[name] = value; else delete filters[name];
+    setQuery({ ...query, page: 1, filters });
+  };
+  const toolbar = <Space wrap>
+    <Select allowClear aria-label="Filter by role" placeholder="All roles" className="status-filter" value={query.filters.role} onChange={value => setFilter('role', value)} options={roles.map(role => ({ value: role.value, label: role.label }))} />
+    <Select allowClear aria-label="Filter by access" placeholder="Any access" className="status-filter" value={query.filters.active} onChange={value => setFilter('active', value)} options={[{ value: 'true', label: 'Has access' }, { value: 'false', label: 'Access removed' }]} />
+  </Space>;
+  const passwordRules = [{ required: true, min: 12, max: 128, message: 'Use 12 to 128 characters' }];
+  return <><div className="page-heading"><div><span className="eyebrow">ADMINISTRATION</span><h1>Staff accounts</h1><p>Add accountants and admins, change their role, and end access straight away when someone leaves.</p></div>
+    <div className="page-actions"><Button type="primary" icon={<Plus />} onClick={() => setCreating(true)}>Add staff member</Button></div></div>
+    <Alert className="section-gap" type="info" showIcon title="Two roles, two sign-in pages" description={<>Accountants sign in at <code>/login</code> and see only the drivers you assign them. Admins sign in at <code>/admin/login</code> and see the whole practice. Each page refuses the other role.</>} />
+    <DataTable<StaffRow> title="Staff" resource="users" query={query} onQuery={setQuery} columns={columns} exportable={false} toolbar={toolbar} />
+    <Modal title="Add a staff member" open={creating} onCancel={close} onOk={() => form.submit()} confirmLoading={busy} okText="Create account" destroyOnHidden>
+      <Form form={form} layout="vertical" preserve={false} initialValues={{ role: 'accountant' }} onFinish={values => void run(() => api.mutate('/users', values), 'Staff account created. Share the first password with them securely.')}>
         <Form.Item name="name" label="Name" rules={[{ required: true, max: 100 }]}><Input maxLength={100} /></Form.Item>
         <Form.Item name="email" label="Work email" rules={[{ required: true, type: 'email' }]}><Input autoComplete="off" /></Form.Item>
-        <Form.Item name="role" label="Role" rules={[{ required: true }]}><Select options={roles.map(value => ({ value, label: label(value) }))} /></Form.Item>{teamField}
-        <Form.Item name="password" label="First password" extra="At least 12 characters. Share it securely; they can change it through password recovery." rules={[{ required: true, min: 12, max: 128 }]}><Input.Password autoComplete="new-password" maxLength={128} /></Form.Item>
+        <Form.Item name="role" label="Role" rules={[{ required: true }]}><Select options={roleOptions} labelRender={({ value }) => label(String(value))} /></Form.Item>
+        <Form.Item name="password" label="First password" extra="At least 12 characters. Share it securely; you can reset it here later." rules={passwordRules}><Input.Password autoComplete="new-password" maxLength={128} /></Form.Item>
       </Form></Modal>
-    <Modal title="New team" open={dialog === 'team'} onCancel={close} onOk={() => form.submit()} confirmLoading={busy} okText="Create team" destroyOnHidden>
-      <Form form={form} layout="vertical" preserve={false} onFinish={values => void run(() => api.mutate('/teams', values), 'Team created.')}><Form.Item name="name" label="Team name" rules={[{ required: true, max: 100 }]}><Input maxLength={100} /></Form.Item></Form></Modal>
     <Modal title={editing ? `Edit ${editing.name}` : ''} open={Boolean(editing)} onCancel={close} onOk={() => form.submit()} confirmLoading={busy} okText="Save changes" destroyOnHidden>
-      {editing?.id === active.staff.id && <Alert className="form-alert" type="info" title="This is your own account" description="You cannot remove your own administrator access." />}
-      <Alert className="form-alert" type="warning" title="Changing a role or access signs them out" description="Their current session ends immediately." />
-      {editing && <Form form={form} layout="vertical" preserve={false} initialValues={{ name: editing.name, role: editing.role, team_id: editing.team_id, active: editing.active }} onFinish={values => void run(() => api.mutate(`/users/${editing.id}`, { expected_version: editing.version, name: values.name, role: values.role, team_id: values.team_id || null, active: values.active, reason: values.reason }, 'PATCH'), 'Staff member updated.')}>
+      {editing?.id === active.staff.id && <Alert className="form-alert" type="info" title="This is your own account" description="You cannot remove your own admin access or turn off your own access." />}
+      {editing?.role === 'accountant' && editing.assigned_drivers > 0 && <Alert className="form-alert" type="warning" title={`${editing.assigned_drivers} driver(s) are assigned to ${editing.name}`} description={<>Before removing their access or making them an admin, move those drivers to another accountant on the <Link to="/drivers" state={{ accountant_id: editing.id }}>Drivers</Link> page.</>} />}
+      <Alert className="form-alert" type="warning" title="Changing a role or access signs them out" description="Their current session ends immediately. After a role change they sign in on the other page." />
+      {editing && <Form form={form} layout="vertical" preserve={false} initialValues={{ name: editing.name, role: editing.role, active: editing.active }} onFinish={values => void run(() => api.mutate(`/users/${editing.id}`, { expected_version: editing.version, name: values.name, role: values.role, active: values.active, reason: values.reason }, 'PATCH'), 'Staff member updated.')}>
         <Form.Item name="name" label="Name" rules={[{ required: true, max: 100 }]}><Input maxLength={100} /></Form.Item>
-        <Form.Item name="role" label="Role" rules={[{ required: true }]}><Select options={roles.map(value => ({ value, label: label(value) }))} /></Form.Item>{teamField}
+        <Form.Item name="role" label="Role" rules={[{ required: true }]}><Select options={roleOptions} labelRender={({ value }) => label(String(value))} /></Form.Item>
         <Form.Item name="active" label="Has access" valuePropName="checked"><Switch /></Form.Item>
         <Form.Item name="reason" label="Reason" rules={[{ required: true, min: 3, max: 500 }]}><Input.TextArea rows={2} maxLength={500} /></Form.Item>
+      </Form>}</Modal>
+    <Modal title={resetting ? `Reset password for ${resetting.name}` : ''} open={Boolean(resetting)} onCancel={close} onOk={() => form.submit()} confirmLoading={busy} okText="Set new password" destroyOnHidden>
+      <Alert className="form-alert" type="warning" title="They are signed out everywhere" description="Give them the new password securely. Use this when someone is locked out and email recovery is not set up." />
+      {resetting && <Form form={form} layout="vertical" preserve={false} onFinish={values => void run(() => api.mutate(`/users/${resetting.id}/password`, { expected_version: resetting.version, password: values.password, reason: values.reason }), 'Password reset.')}>
+        <Form.Item name="password" label="New password" rules={passwordRules}><Input.Password autoComplete="new-password" maxLength={128} /></Form.Item>
+        <Form.Item name="confirm" label="Confirm new password" dependencies={['password']} rules={[{ required: true }, ({ getFieldValue }) => ({ validator: (_, value: string) => value === getFieldValue('password') ? Promise.resolve() : Promise.reject(new Error('Passwords must match')) })]}><Input.Password autoComplete="new-password" maxLength={128} /></Form.Item>
+        <Form.Item name="reason" label="Reason" rules={[{ required: true, min: 3, max: 500 }]}><Input.TextArea rows={2} maxLength={500} placeholder="For example: locked out" /></Form.Item>
       </Form>}</Modal></>;
 }
 

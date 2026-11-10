@@ -5,17 +5,21 @@ from pydantic import EmailStr, Field, SecretStr, field_validator
 from app.schemas.books import Body, Versioned
 
 
+StaffRole = Literal["admin", "accountant"]
+
+
 class StaffLogin(Body):
     email: EmailStr
     password: SecretStr = Field(min_length=1, max_length=128)
+    # Each role signs in through its own page; the other page refuses the account.
+    portal: StaffRole = "accountant"
 
 
 class StaffIdentity(Body):
     id: UUID
     name: str
     email: EmailStr | None
-    role: Literal["accountant", "senior_accountant", "admin", "support"]
-    team_id: UUID | None
+    role: StaffRole
 
 
 class StaffLoginResult(Body):
@@ -51,6 +55,13 @@ class AssignmentInput(Body):
     ids: list[UUID] = Field(min_length=1, max_length=100)
     accountant_id: UUID
     versions: dict[str, int]
+    reason: str = Field(min_length=3, max_length=500)
+
+
+class DriverAssignmentInput(Body):
+    driver_ids: list[UUID] = Field(min_length=1, max_length=100)
+    # None removes the assignment, leaving the driver with no accountant.
+    accountant_id: UUID | None
     reason: str = Field(min_length=3, max_length=500)
 
 

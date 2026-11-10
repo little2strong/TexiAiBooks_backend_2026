@@ -117,8 +117,7 @@ async function mockWorkspace(page: Page) {
       id: "appearance-test-staff",
       name: "Taylor Accountant",
       email: "test@example.invalid",
-      role: "admin",
-      team_id: null,
+      role: "accountant",
     };
     let body: unknown;
     if (path.endsWith("/auth/login"))

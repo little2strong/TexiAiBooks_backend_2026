@@ -3,15 +3,20 @@ import { Alert, Button, Form, Input, Segmented } from "antd";
 import {
   ArrowLeft,
   ArrowRight,
+  History,
   Mail,
+  Percent,
   ScanLine,
   ShieldCheck,
   Sparkles,
   LockKeyhole,
+  UserRoundCog,
+  Users,
 } from "lucide-react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { request } from "../api/client";
-import { authProvider } from "../api/providers";
+import { authProvider, homeFor } from "../api/providers";
+import type { Role } from "../api/types";
 import { useSession } from "../auth/context";
 import { session } from '../auth/session';
 import { ThemeToggle } from "../components/ThemeToggle";
@@ -19,7 +24,34 @@ import { LoginShowcase } from "../components/LoginShowcase";
 import "./login.css";
 
 type Mode = "login" | "forgot" | "reset";
-export function Login() {
+
+/** What each portal says about itself. Both use the same form; the backend refuses an account on the wrong portal. */
+const copy = {
+  accountant: {
+    edition: "Accountant workspace", chip: "ACCOUNTANT ACCESS", heading: "Welcome back",
+    subtitle: "Your drivers’ books. Your expertise. All in one place.", placeholder: "you@yourpractice.co.uk",
+    eyebrow: "MADE FOR THE PEOPLE BEHIND THE DRIVERS", headline: ["From busy roads", "to ", "clear books."],
+    story: "A calmer place to review the details, support your drivers and keep every handoff moving.",
+    label: "Accountant workspace", footer: "TaxiAiBooks · Accountant workspace",
+  },
+  admin: {
+    edition: "Admin console", chip: "ADMINISTRATOR ACCESS", heading: "Admin sign in",
+    subtitle: "Manage accountants, drivers and practice settings.", placeholder: "admin@yourpractice.co.uk",
+    eyebrow: "FOR PRACTICE ADMINISTRATORS", headline: ["Run the practice", "with ", "clear control."],
+    story: "Add accountants, decide who looks after each driver, record filings and keep every rate and privacy request in order.",
+    label: "Admin console", footer: "TaxiAiBooks · Admin console",
+  },
+} as const;
+
+const adminAbilities = [
+  { icon: <Users aria-hidden="true" />, title: "Accountants", text: "Add, change or remove access straight away." },
+  { icon: <UserRoundCog aria-hidden="true" />, title: "Driver assignment", text: "Decide who looks after each driver." },
+  { icon: <Percent aria-hidden="true" />, title: "Tax rates", text: "Draft, approve and activate each change." },
+  { icon: <History aria-hidden="true" />, title: "Audit log", text: "See who viewed or changed what." },
+];
+
+export function Login({ portal = "accountant" }: { portal?: Role }) {
+  const text = copy[portal];
   const active = useSession();
   const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>("login");
@@ -58,10 +90,11 @@ export function Login() {
         const result = await authProvider.login({
           email: values.email,
           password: values.password,
+          portal,
         });
         if (!result.success) throw result.error;
         form.resetFields();
-        navigate("/", { replace: true });
+        navigate(homeFor(portal), { replace: true });
       }
     } catch (caught) {
       setError(
@@ -73,12 +106,12 @@ export function Login() {
       setBusy(false);
     }
   };
-  if (active) return <Navigate to="/" replace />;
+  if (active) return <Navigate to={homeFor(active.staff.role)} replace />;
   return (
-    <main className="login-page">
+    <main className={`login-page login-page-${portal}`}>
       <section
         className="login-story"
-        aria-label="TaxiAiBooks accountant workspace"
+        aria-label={`TaxiAiBooks ${text.edition.toLowerCase()}`}
       >
         <header className="login-brand-header">
           <div className="brand brand-login">
@@ -89,24 +122,33 @@ export function Login() {
               TaxiAiBooks<small>Drive. Snap. Done.</small>
             </span>
           </div>
-          <span className="login-edition">Accountant & admin</span>
+          <span className="login-edition">{text.edition}</span>
         </header>
         <div className="login-story-content">
           <div className="login-story-copy">
             <span className="eyebrow">
-              <span /> MADE FOR THE PEOPLE BEHIND THE DRIVERS
+              <span /> {text.eyebrow}
             </span>
             <h1>
-              From busy roads
-              <br /> to <span>clear books.</span>
+              {text.headline[0]}
+              <br /> {text.headline[1]}<span>{text.headline[2]}</span>
             </h1>
-            <p>
-              A calmer place to review the details, support your drivers and
-              keep every handoff moving.
-            </p>
+            <p>{text.story}</p>
           </div>
-          <LoginShowcase />
-          <div className="login-benefits">
+          {portal === "admin" ? (
+            <ul className="admin-abilities" aria-label="What the admin console does">
+              {adminAbilities.map((item) => (
+                <li key={item.title}>
+                  <span className="admin-ability-icon">{item.icon}</span>
+                  <strong>{item.title}</strong>
+                  <span>{item.text}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <LoginShowcase />
+          )}
+          {portal === "accountant" && <div className="login-benefits">
             <div>
               <ScanLine aria-hidden="true" />
               <strong>Evidence first</strong>
@@ -122,7 +164,7 @@ export function Login() {
               <strong>Always traceable</strong>
               <span>A clear trail of every action.</span>
             </div>
-          </div>
+          </div>}
         </div>
         <footer className="login-story-footer">
           <span>
@@ -134,7 +176,7 @@ export function Login() {
           </span>
         </footer>
       </section>
-      <section className="login-form-section" aria-label="Staff sign in">
+      <section className="login-form-section" aria-label={`${text.edition} sign in`}>
         <header className="login-form-topbar">
           <span>
             <span className="login-status-dot" /> YOUR SECURE WORKSPACE
@@ -148,7 +190,7 @@ export function Login() {
                 <LockKeyhole aria-hidden="true" />
               </span>
               <span className="secure-chip">
-                {mode === "login" ? "STAFF ACCESS" : "ACCOUNT RECOVERY"}
+                {mode === "login" ? text.chip : "ACCOUNT RECOVERY"}
               </span>
             </div>
             <h2>
@@ -156,14 +198,14 @@ export function Login() {
                 ? "Forgot your password?"
                 : mode === "reset"
                   ? "Set a new password"
-                  : "Welcome back"}
+                  : text.heading}
             </h2>
             <p className="muted">
               {mode === "forgot"
                 ? "We’ll help you get back to your workspace."
                 : mode === "reset"
                   ? "Paste the recovery token from your email to set a new password."
-                  : "Your drivers’ books. Your expertise. All in one place."}
+                  : text.subtitle}
             </p>
             {error && (
               <Alert
@@ -212,7 +254,7 @@ export function Login() {
                     size="large"
                     type="email"
                     autoComplete="username"
-                    placeholder="you@yourpractice.co.uk"
+                    placeholder={text.placeholder}
                     maxLength={254}
                   />
                 </Form.Item>
@@ -280,7 +322,7 @@ export function Login() {
               {mode === "login" && (
                 <div className="login-form-options">
                   <span>
-                    <LockKeyhole aria-hidden="true" /> Staff workspace
+                    <LockKeyhole aria-hidden="true" /> {text.label}
                   </span>
                   <Button type="link" onClick={() => changeMode("forgot")}>
                     Forgot password?
@@ -328,19 +370,26 @@ export function Login() {
               <LockKeyhole aria-hidden="true" />
               <span>Your session and financial data stay private.</span>
             </div>
+            {portal === "admin" && mode === "login" && (
+              <p className="login-switch">
+                Not an administrator? <Link to="/login">Accountant sign in</Link>
+              </p>
+            )}
           </div>
           <div className="login-help">
             <ShieldCheck aria-hidden="true" />
             <div>
               <strong>A workspace you can trust.</strong>
               <p>
-                For authorised staff. Financial views and changes are recorded.
+                {portal === "admin"
+                  ? "For practice administrators. Every change is recorded in the audit log."
+                  : "For authorised staff. Financial views and changes are recorded."}
               </p>
             </div>
           </div>
         </div>
         <footer className="login-footer">
-          <span>TaxiAiBooks · Accountant & Admin</span>
+          <span>{text.footer}</span>
           <span>Drive. Snap. Done.</span>
         </footer>
       </section>

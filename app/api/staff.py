@@ -17,7 +17,7 @@ from app.models.books import DriverDocument, Job, Mileage, Mutation, PrivateFile
 from app.models.common import utc_now
 from app.models.staff import AccountantHandoff, DriverAssignment, StaffAccount, StaffAudit, StaffEntry, StaffView
 from app.schemas.books import Confirmation, ReceiptPatch, Reversal, TransactionPatch
-from app.schemas.staff import (AssignmentInput, EntryInput, ExportInput, HandoffPatch, RevealInput,
+from app.schemas.staff import (AssignmentInput, DriverAssignmentInput, EntryInput, ExportInput, HandoffPatch, RevealInput,
     ReviewInput, StaffLogin, StaffLoginResult, TableQuery, ViewInput, ViewSearch, YearInput)
 from app.services.auth_security import rate_limit
 from app.services.books import (CATEGORIES, SOURCES, check_version, history, owned, profile, rows,
@@ -26,7 +26,7 @@ from app.services.files import receipt_wire, store_file
 from app.services.ledger import mileage_total, update_transaction
 from app.services.sessions import lock_user
 from app.services.staff import (IDLE_SECONDS, StaffAuth, add_audit, driver_scope,
-    driver_search, driver_summary, identity, paginate, query_filters, require_driver, staff_token)
+    driver_search, driver_summary, identity, paginate, query_filters, require_admin, require_driver, staff_token)
 from app.services.tax import deadlines, estimate, filed_return, filing_year, payment_timeline, rule_set, supported_years, today
 from app.services.vault import decrypt
 
@@ -46,7 +46,12 @@ def login(data: StaffLogin, db: SessionDep, settings: SettingsDep, request: Requ
     valid = password_hash.verify(data.password.get_secret_value(), user.password_hash if user else DUMMY_HASH)
     if not valid or not staff or not staff.active:
         raise HTTPException(401, "Invalid staff credentials")
-    device = DeviceSession(user_id=staff.id, device_name="Accountant web panel", last_used_at=utc_now(),
+    if staff.role != data.portal:
+        # Same answer as a wrong password, so the page never reveals which role an email has.
+        add_audit(db, staff, "login_refused_wrong_portal", after={"portal": data.portal})
+        db.commit()
+        raise HTTPException(401, "Invalid staff credentials")
+    device = DeviceSession(user_id=staff.id, device_name="Admin console" if staff.role == "admin" else "Accountant web panel", last_used_at=utc_now(),
         expires_at=utc_now() + timedelta(minutes=settings.access_token_expire_minutes))
     db.add(device)
     db.flush()
@@ -134,11 +139,17 @@ def filtered_drivers(db, staff, data, settings):
 
 def global_table(db, staff, resource, data, settings):
     if resource == "drivers":
-        query_filters(data, {"accountant_id"})
+        query_filters(data, {"accountant_id", "assignment"})
         query = filtered_drivers(db, staff, data, settings)
         if data.filters.get("accountant_id"):
             query = query.where(User.id.in_(select(DriverAssignment.driver_id).where(
                 DriverAssignment.accountant_id == UUID(data.filters["accountant_id"]))))
+        assignment = data.filters.get("assignment")
+        if assignment not in {None, "assigned", "unassigned"}:
+            raise HTTPException(422, "Assignment filter must be assigned or unassigned")
+        if assignment:
+            assigned = User.id.in_(select(DriverAssignment.driver_id))
+            query = query.where(assigned if assignment == "assigned" else ~assigned)
         actual_name = select(func.concat(Profile.data["first_name"].astext, " ", Profile.data["last_name"].astext)).where(
             Profile.owner_id == User.id, Profile.kind == "me", Profile.scope == "").scalar_subquery()
         return paginate(db, query, User, data, {"created_at": User.created_at, "name": func.coalesce(actual_name, User.display_name),
@@ -178,12 +189,8 @@ def handoffs(data: TableQuery, auth: StaffAuth, db: SessionDep, settings: Settin
 
 @router.post("/accountants/search")
 def accountants(data: TableQuery, auth: StaffAuth, db: SessionDep):
-    staff = auth[0]
-    if staff.role not in {"admin", "senior_accountant"}:
-        raise HTTPException(403, "Reassignment requires a senior accountant or admin")
-    query = select(StaffAccount).where(StaffAccount.active.is_(True), StaffAccount.role.in_(["accountant", "senior_accountant"]))
-    if staff.role != "admin":
-        query = query.where(StaffAccount.team_id == staff.team_id, StaffAccount.team_id.is_not(None))
+    require_admin(auth[0])
+    query = select(StaffAccount).where(StaffAccount.active.is_(True), StaffAccount.role == "accountant")
     if data.search:
         query = query.where(StaffAccount.name.ilike("%" + data.search.replace("%", "\\%") + "%"))
     query_filters(data, set())
@@ -191,16 +198,72 @@ def accountants(data: TableQuery, auth: StaffAuth, db: SessionDep):
         lambda row: identity(db, row))
 
 
+def assignment_target(db, accountant_id):
+    target = db.get(StaffAccount, accountant_id)
+    if not target or not target.active or target.role != "accountant":
+        raise HTTPException(422, "Select an active accountant")
+    return target
+
+
+def access_revoked(db, driver_id):
+    """A revocation stands until the driver asks for an accountant again."""
+    access = profile(db, driver_id, "accountant_access")
+    revoked_at = access.data.get("revoked_at") if access else None
+    if not revoked_at:
+        return False
+    latest_request = db.scalar(select(func.max(SupportRecord.created_at)).join(AccountantHandoff,
+        AccountantHandoff.id == SupportRecord.id).where(AccountantHandoff.driver_id == driver_id))
+    return not latest_request or latest_request <= datetime.fromisoformat(revoked_at)
+
+
+def set_assignment(db, staff, driver_id, target, reason, resource_id=None):
+    assignment = db.get(DriverAssignment, driver_id, populate_existing=True)
+    before = {"accountant_id": str(assignment.accountant_id) if assignment else None}
+    if target is None:
+        if not assignment:
+            return
+        db.delete(assignment)
+        action = "driver_unassigned"
+    else:
+        if assignment and assignment.accountant_id == target.id:
+            return
+        if not assignment:
+            db.add(DriverAssignment(driver_id=driver_id, accountant_id=target.id))
+        else:
+            assignment.accountant_id = target.id
+            assignment.version += 1
+        action = "driver_reassigned"
+    # Every handoff shows its accountant, so each one changes version.
+    for affected in db.scalars(select(AccountantHandoff).where(AccountantHandoff.driver_id == driver_id)):
+        affected.version += 1
+    add_audit(db, staff, action, driver_id, resource_id, before,
+        {"accountant_id": str(target.id) if target else None, "reason": reason})
+
+
+@router.post("/drivers/assign")
+def assign_drivers(data: DriverAssignmentInput, auth: StaffAuth, db: SessionDep, request: Request, key: Key):
+    staff = auth[0]
+    require_admin(staff)
+    target = assignment_target(db, data.accountant_id) if data.accountant_id else None
+    def apply():
+        ids = sorted(set(data.driver_ids))
+        for driver_id in ids:
+            lock_user(db, driver_id)
+            require_driver(db, staff, driver_id)
+            if target and access_revoked(db, driver_id):
+                raise HTTPException(409, "A selected driver revoked accountant access; a new request from the driver is required")
+        for driver_id in ids:
+            set_assignment(db, staff, driver_id, target, data.reason)
+        db.flush()
+        return {"items": [driver_summary(db, db.get(User, driver_id)) for driver_id in ids]}
+    return write(db, db.get(User, staff.id), request, key, data.model_dump(mode="json"), apply)
+
+
 @router.post("/handoffs/assign")
 def assign(data: AssignmentInput, auth: StaffAuth, db: SessionDep, request: Request, key: Key):
     staff = auth[0]
-    if staff.role not in {"admin", "senior_accountant"}:
-        raise HTTPException(403, "Reassignment requires a senior accountant or admin")
-    target = db.get(StaffAccount, data.accountant_id)
-    if not target or not target.active or target.role not in {"accountant", "senior_accountant"}:
-        raise HTTPException(422, "Select an active accountant")
-    if staff.role != "admin" and (not staff.team_id or target.team_id != staff.team_id):
-        raise HTTPException(403, "Target accountant must be in your team")
+    require_admin(staff)
+    target = assignment_target(db, data.accountant_id)
     def apply():
         selected = list(db.scalars(select(AccountantHandoff).where(AccountantHandoff.id.in_(data.ids)).order_by(AccountantHandoff.driver_id)))
         if len(selected) != len(set(data.ids)):
@@ -217,18 +280,7 @@ def assign(data: AssignmentInput, auth: StaffAuth, db: SessionDep, request: Requ
                 raise HTTPException(409, "This driver revoked accountant access; a new request from the driver is required")
         for driver_id in sorted({row.driver_id for row in selected}):
             row = next(item for item in selected if item.driver_id == driver_id)
-            assignment = db.get(DriverAssignment, row.driver_id, populate_existing=True)
-            before = {"accountant_id": str(assignment.accountant_id) if assignment else None}
-            if not assignment:
-                db.add(DriverAssignment(driver_id=row.driver_id, accountant_id=target.id))
-            else:
-                assignment.accountant_id = target.id
-                assignment.version += 1
-            # Every affected handoff changes version because assignment is shown there.
-            for affected in db.scalars(select(AccountantHandoff).where(AccountantHandoff.driver_id == row.driver_id)):
-                affected.version += 1
-            add_audit(db, staff, "driver_reassigned", row.driver_id, row.id, before,
-                {"accountant_id": str(target.id), "reason": data.reason})
+            set_assignment(db, staff, driver_id, target, data.reason, row.id)
         db.flush()
         return {"items": [handoff_wire(db, row) for row in selected]}
     return write(db, db.get(User, staff.id), request, key, data.model_dump(mode="json"), apply)
@@ -245,8 +297,8 @@ def update_handoff(id: UUID, data: HandoffPatch, auth: StaffAuth, db: SessionDep
         require_driver(db, staff, row.driver_id, write=True)
         db.refresh(row)
         check_version(row, data.expected_version)
-        if (data.status == "filed" or row.status == "filed") and staff.role not in {"admin", "senior_accountant"}:
-            raise HTTPException(403, "Filing sign-off requires a senior accountant")
+        if (data.status == "filed" or row.status == "filed") and staff.role != "admin":
+            raise HTTPException(403, "Only an admin can record or change a filing")
         if data.status == "filed" and row.status != "filed":
             # Driver sign-off lives on the return, so filing is recorded only there.
             raise HTTPException(409, "Record filing from the tax return, after the driver has signed off")
@@ -623,8 +675,6 @@ def delete_view(id: UUID, auth: StaffAuth, db: SessionDep):
 
 @router.post("/exports")
 def export(data: ExportInput, auth: StaffAuth, db: SessionDep, settings: SettingsDep):
-    if auth[0].role == "support":
-        raise HTTPException(403, "Support cannot export financial records")
     if data.driver_id:
         lock_user(db, data.driver_id)
         require_driver(db, auth[0], data.driver_id)

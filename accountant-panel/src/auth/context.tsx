@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Alert, Button, Result, Spin } from 'antd';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { api } from '../api/client';
-import type { Config } from '../api/types';
+import { homeFor, loginFor } from '../api/providers';
+import type { Config, Role } from '../api/types';
 import { session } from './session';
 
 export function useSession() { return useSyncExternalStore(session.subscribe, session.get); }
@@ -14,8 +15,16 @@ export function useWorkspace() {
   return value;
 }
 
+/** Keeps each role in its own area: an admin opening `/` lands on the admin console, an accountant opening `/admin/…` is sent home. */
+export function RequireRole({ role, children }: { role: Role; children: ReactNode }) {
+  const active = useSession();
+  if (active && active.staff.role !== role) return <Navigate to={homeFor(active.staff.role)} replace />;
+  return children;
+}
+
 export function ProtectedWorkspace({ children }: { children: ReactNode }) {
   const active = useSession();
+  const location = useLocation();
   const config = useQuery({ queryKey: ['config'], queryFn: api.config, enabled: Boolean(active) });
   const [year, setYear] = useState('');
   useEffect(() => {
@@ -43,7 +52,7 @@ export function ProtectedWorkspace({ children }: { children: ReactNode }) {
       document.removeEventListener('visibilitychange', visibility);
     };
   }, [active, config.data]);
-  if (!active) return <Navigate to="/login" replace />;
+  if (!active) return <Navigate to={loginFor(session.lastRole() ?? (location.pathname.startsWith('/admin') ? 'admin' : 'accountant'))} replace />;
   if (config.isPending) return <div className="center-state"><Spin size="large" description="Opening secure workspace" /></div>;
   if (config.isError) return <Result status="error" title="The staff workspace could not load" subTitle={config.error.message}
     extra={<><Button onClick={() => void config.refetch()}>Retry</Button><Button onClick={() => session.end()}>Sign out</Button></>} />;

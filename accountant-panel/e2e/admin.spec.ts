@@ -3,12 +3,14 @@ import AxeBuilder from '@axe-core/playwright';
 // Only the owned disposable-PostgreSQL harness supplies these synthetic identities.
 test.skip(!process.env.PANEL_TEST_PASSWORD, 'Run through tests/test_panel_browser.py to provision isolated synthetic records.');
 
+// Synthetic admins are named admin-*; each role has its own sign-in page.
 async function login(page: Page, name: string) {
-  await page.goto('/login');
+  const admin = name.startsWith('admin');
+  await page.goto(admin ? '/admin/login' : '/login');
   await page.getByLabel('Work email').fill(`${name}@browser.example`);
   await page.getByLabel('Password', { exact: true }).fill(process.env.PANEL_TEST_PASSWORD!);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('heading', { name: /^Welcome,/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: admin ? 'Practice overview' : /^Welcome,/ })).toBeVisible();
 }
 
 async function accessible(page: Page) {
@@ -36,7 +38,8 @@ test('admin screens load, stay accessible and rates move through approval', asyn
   page.on('pageerror', error => failures.push(error.message));
   page.on('console', message => { if (message.type() === 'error') failures.push(message.text()); });
   await login(page, 'admin-screens');
-  for (const [link, heading] of [['Tax returns', 'Tax returns'], ['AI review', 'AI review'], ['Users and roles', 'Users & roles'], ['Privacy requests', 'Privacy requests'], ['Audit log', 'Audit log'], ['Tax rates', 'Tax rates']]) {
+  await accessible(page);
+  for (const [link, heading] of [['Drivers & assignment', 'Drivers & assignment'], ['Tax returns', 'Tax returns'], ['AI review', 'AI review'], ['Staff accounts', 'Staff accounts'], ['Privacy requests', 'Privacy requests'], ['Audit log', 'Audit log'], ['Tax rates', 'Tax rates']]) {
     await page.getByRole('link', { name: link, exact: true }).click();
     await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
     await expect(page.locator('[aria-busy="true"]')).toHaveCount(0);
@@ -59,7 +62,7 @@ test('admin screens load, stay accessible and rates move through approval', asyn
 
 test('a tax return opens from the driver profile and shows why it is blocked', async ({ page }) => {
   await login(page, 'admin-returns');
-  await page.getByRole('link', { name: 'Driver directory' }).click();
+  await page.getByRole('link', { name: 'Drivers & assignment' }).click();
   await page.getByRole('link', { name: /Browser Driver/ }).first().click();
   await page.getByRole('button', { name: /tax return$/ }).first().click();
   await expect(page.getByRole('heading', { name: 'Browser Driver' })).toBeVisible();
@@ -75,7 +78,34 @@ test('a tax return opens from the driver profile and shows why it is blocked', a
 
 test('non-admin staff cannot reach administration', async ({ page }) => {
   await login(page, 'accountant-receipt');
-  await expect(page.getByRole('link', { name: 'Users and roles' })).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Staff accounts' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Tax rates' })).toHaveCount(0);
   await expect(page.getByRole('link', { name: 'Subscriptions' })).toHaveCount(0);
+});
+
+test('each role signs in only on its own page', async ({ page }) => {
+  for (const [path, name] of [['/admin/login', 'accountant-receipt'], ['/login', 'admin-screens']]) {
+    await page.goto(path);
+    await page.getByLabel('Work email').fill(`${name}@browser.example`);
+    await page.getByLabel('Password', { exact: true }).fill(process.env.PANEL_TEST_PASSWORD!);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    // The same message as a wrong password, so the page never reveals a role.
+    await expect(page.getByRole('alert').filter({ hasText: /email or password is invalid/ })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(path + '$'));
+  }
+});
+
+test('an admin assigns a driver from the driver list', async ({ page }) => {
+  await login(page, 'admin-screens');
+  await page.getByRole('link', { name: 'Drivers & assignment', exact: true }).click();
+  const row = page.getByRole('row', { name: /Browser Driver/ });
+  await row.getByRole('button', { name: /^(Assign|Change accountant)$/ }).click();
+  const accountant = page.getByRole('dialog').getByRole('combobox', { name: 'Accountant' });
+  await accountant.click();
+  await page.locator('.ant-select-item-option[title="accountant-receipt"]').click();
+  await page.getByLabel('Reason').fill('Synthetic workload balance');
+  await page.getByRole('button', { name: 'Save assignment' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('row', { name: /Browser Driver/ })).toContainText('accountant-receipt');
+  await accessible(page);
 });

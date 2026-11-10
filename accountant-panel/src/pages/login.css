@@ -741,3 +741,60 @@
     animation: none;
   }
 }
+
+/* Admin console sign-in: same layout, its own identity so nobody confuses the two pages. */
+.login-page-admin .login-story {
+  background: linear-gradient(160deg, var(--brand-ink) 0%, var(--admin-ink) 100%);
+}
+.login-page-admin .login-edition {
+  color: var(--brand-on-primary);
+  background: var(--brand-primary);
+  border-color: var(--brand-primary);
+}
+.admin-abilities {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-abilities > li {
+  display: grid;
+  grid-template-columns: var(--space-8) 1fr;
+  gap: var(--space-1) var(--space-3);
+  align-items: start;
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--sidebar-border);
+  border-radius: var(--radius-card);
+  background: var(--sidebar-hover);
+}
+.admin-ability-icon {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-control);
+  color: var(--brand-on-primary);
+  background: var(--brand-primary);
+}
+.admin-abilities strong {
+  font-size: var(--font-table);
+}
+.admin-abilities > li > span:last-child {
+  font-size: var(--font-caption);
+  color: var(--sidebar-secondary);
+  line-height: 1.6;
+}
+.login-switch {
+  margin: var(--space-4) 0 0;
+  text-align: center;
+  font-size: var(--font-caption);
+  color: var(--text-helper);
+}
+@media (max-width: 720px) {
+  .admin-abilities {
+    grid-template-columns: 1fr;
+  }
+}

@@ -9,7 +9,11 @@ import type {
 } from "@refinedev/core";
 import { api, baseUrl, request } from "./client";
 import { session } from "../auth/session";
-import type { Page, TableQuery } from "./types";
+import type { Page, Role, TableQuery } from "./types";
+
+/** Each role has its own sign-in page and its own landing page. */
+export const homeFor = (role: Role) => (role === "admin" ? "/admin" : "/");
+export const loginFor = (role: Role) => (role === "admin" ? "/admin/login" : "/login");
 
 export function tablePath(resource: string): string {
   if (
@@ -72,11 +76,11 @@ export const dataProvider: DataProvider = {
 };
 
 export const authProvider: AuthProvider = {
-  login: async ({ email, password }: { email: string; password: string }) => {
+  login: async ({ email, password, portal = "accountant" }: { email: string; password: string; portal?: Role }) => {
     try {
-      const result = await api.login(email, password);
+      const result = await api.login(email, password, portal);
       session.start(result);
-      return { success: true, redirectTo: "/" };
+      return { success: true, redirectTo: homeFor(result.staff.role) };
     } catch (error) {
       return { success: false, error: error as Error };
     }
@@ -87,11 +91,11 @@ export const authProvider: AuthProvider = {
     } finally {
       session.end();
     }
-    return { success: true, redirectTo: "/login" };
+    return { success: true, redirectTo: loginFor(session.lastRole() ?? "accountant") };
   },
   check: async () => ({
     authenticated: Boolean(session.token()),
-    ...(!session.token() ? { redirectTo: "/login" } : {}),
+    ...(!session.token() ? { redirectTo: loginFor(session.lastRole() ?? "accountant") } : {}),
   }),
   getIdentity: async () => session.get()?.staff,
   getPermissions: async () => session.get()?.staff.role,

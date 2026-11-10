@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Alert, App, Avatar, Button, Empty, Form, Input, InputNumber, Modal, Select } from 'antd';
 import { ArrowLeft, CircleAlert, CircleCheck, Plus, Send, TriangleAlert } from 'lucide-react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { api, request } from '../api/client';
 import { useSession, useWorkspace } from '../auth/context';
@@ -30,7 +30,9 @@ export function useOpenReturn() {
 
 export function ReturnsPage() {
   const { year } = useWorkspace();
-  const [query, setQuery] = useState<TableQuery>({ ...initialQuery });
+  const location = useLocation();
+  // The admin overview links here with a status already chosen.
+  const [query, setQuery] = useState<TableQuery>({ ...initialQuery, filters: location.state?.status ? { status: String(location.state.status) } : {} });
   const columns = useMemo<ColumnDef<TaxReturnRow>[]>(() => [
     { id: 'driver', header: 'Driver', enableSorting: false, cell: ({ row }) => <Link to={`/returns/${row.original.id}`} className="driver-cell"><Avatar size={34} className="driver-avatar">{initials(row.original.driver_name)}</Avatar><span><strong>{row.original.driver_name}</strong><small>{row.original.driver_email || 'Email not supplied'}</small></span></Link> },
     { accessorKey: 'tax_year', header: 'Tax year' },
@@ -79,7 +81,7 @@ function ReturnWorkspace({ id }: { id: string }) {
   const result = useQuery({ queryKey: ['return', id], queryFn: ({ signal }) => request<TaxReturnDetail>(`/staff/returns/${id}`, { signal }) });
   const data = result.data;
   const writer = can(active.staff.role, 'edit');
-  const senior = can(active.staff.role, 'approve_submission');
+  const canFile = can(active.staff.role, 'approve_submission');
   const close = () => { setDialog(null); setVoiding(null); };
   const act = async (path: string, body: Record<string, unknown>, done: string) => {
     if (!data) return;
@@ -99,13 +101,13 @@ function ReturnWorkspace({ id }: { id: string }) {
       <div className="page-actions">
         {writer && data.status === 'in_preparation' && <Button icon={<Plus />} onClick={() => setDialog('adjust')}>Add adjustment</Button>}
         {writer && data.status === 'in_preparation' && <Button type="primary" icon={<Send />} disabled={data.blockers > 0} title={data.blockers ? 'Clear the blocking checks first' : undefined} onClick={() => setDialog('send')}>Send for driver sign-off</Button>}
-        {senior && data.status === 'driver_approved' && <Button type="primary" onClick={() => setDialog('file')}>Record external filing</Button>}
-        {writer && (data.status === 'awaiting_driver' || data.status === 'driver_approved' || (data.status === 'filed' && senior)) && <Button onClick={() => setDialog('reopen')}>{data.status === 'filed' ? 'Reopen for amendment' : 'Reopen review'}</Button>}
+        {canFile && data.status === 'driver_approved' && <Button type="primary" onClick={() => setDialog('file')}>Record external filing</Button>}
+        {writer && (data.status === 'awaiting_driver' || data.status === 'driver_approved' || (data.status === 'filed' && canFile)) && <Button onClick={() => setDialog('reopen')}>{data.status === 'filed' ? 'Reopen for amendment' : 'Reopen review'}</Button>}
       </div></div>
     <Steps status={data.status} />
     {data.driver_note && <Alert className="section-gap" type="warning" showIcon title="The driver asked for changes" description={data.driver_note} />}
     {data.status === 'filed' && <Alert className="section-gap" type="success" showIcon title={`Filing recorded: ${data.filing_reference}`} description={`Recorded ${data.filed_at ? datetime(data.filed_at) : ''} by ${data.filed_by_name || 'staff'}. The app holds the reference; it did not send anything to HMRC.`} />}
-    {data.status === 'driver_approved' && !senior && <Alert className="section-gap" type="info" showIcon title="Waiting for a senior accountant" description="The driver has approved this version. A senior accountant or admin records the filing." />}
+    {data.status === 'driver_approved' && !canFile && <Alert className="section-gap" type="info" showIcon title="Waiting for an admin to file" description="The driver has approved this version. An admin files it with HMRC and records the filing here." />}
     <div className="return-grid">
       <div>
         <section className="surface profile-card section-gap" aria-label="Filing checklist"><div className="section-heading"><h2>Filing checklist</h2><span className="muted">{data.status === 'filed' ? 'Filed' : data.status !== 'in_preparation' ? 'Sent for sign-off' : data.blockers ? `${data.blockers} blocking` : 'Ready for sign-off'}</span></div>

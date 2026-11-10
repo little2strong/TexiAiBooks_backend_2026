@@ -1,5 +1,7 @@
 # Accountant panel: additive contracts (listed before implementation)
 
+**10 November 2026 update: two roles, two sign-in pages.** Staff roles are now only `admin` and `accountant`; teams, senior accountants and support are removed (migration `0008` turns existing senior and support accounts into accountants and signs them out). `POST /staff/auth/login` takes `portal: "admin" | "accountant"` (default `accountant`) and refuses an account on the wrong portal with the same 401 as a wrong password. Admins sign in at `/admin/login` and see every driver; accountants sign in at `/login` and see only drivers assigned to them. Only admins assign drivers, record or reopen filings and change MTD exemptions. New admin endpoints: `POST /staff/admin/overview {tax_year}`, `POST /staff/drivers/assign {driver_ids, accountant_id|null, reason}`, `POST /staff/users/{id}/password {expected_version, password, reason}`; driver search accepts `filters.assignment = assigned|unassigned`. An accountant with assigned drivers cannot be deactivated or made admin until the drivers are moved. Where the text below mentions senior accountants, support or teams, it describes the earlier design.
+
 **1 November 2026 update.** Screens 5–7 are now implemented, and the delivery boundary at the end of this document no longer applies. Exact schemas are in [openapi.json](openapi.json).
 
 | Group | Paths under `/api/v1` | Who |

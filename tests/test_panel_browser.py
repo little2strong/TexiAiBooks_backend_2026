@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from app.core.security import password_hash
 from app.models import User
 from app.models.books import Business, PrivateFile, Profile, Receipt, SupportRecord, Transaction
-from app.models.staff import AccountantHandoff, DriverAssignment, StaffAccount, StaffTeam
+from app.models.staff import AccountantHandoff, DriverAssignment, StaffAccount
 from app.services.books import catalog_id
 from app.services.vault import encrypt
 
@@ -47,18 +47,17 @@ def test_live_panel_browser(postgres_engine, settings):
     settings.identifier_encryption_keys = [SecretStr(Fernet.generate_key().decode())]
     password = secrets.token_urlsafe(24)
     with Session(postgres_engine) as db:
-        team = StaffTeam(name="Synthetic browser team")
         driver = User(email="driver@browser.example", display_name="Browser Driver", password_hash=password_hash.hash(secrets.token_urlsafe(32)))
-        db.add_all([team, driver]); db.flush()
+        db.add(driver); db.flush()
         owner = driver.id
         db.add(Profile(owner_id=owner, kind="me", data={"first_name": "Browser", "last_name": "Driver", "preferences": {"locale": "en", "timezone": "Europe/London"}}))
         db.add(Profile(owner_id=owner, kind="tax", scope="2026-27", data={"region": "england_wales_ni", "has_paye_job": False, "employments": [], "utr_masked": "******7890", "ni_masked": "*****456C"}, identifiers=encrypt(settings, {"utr": "1234567890", "ni_number": "AB123456C"})))
-        for name, role in [("admin-flow", "admin"), ("accountant-receipt", "accountant"), ("support-flow", "support"), ("admin-accessibility", "admin"), ("admin-screens", "admin"), ("admin-returns", "admin")]:
+        for name, role in [("admin-flow", "admin"), ("accountant-receipt", "accountant"), ("unassigned-flow", "accountant"), ("admin-accessibility", "admin"), ("admin-screens", "admin"), ("admin-returns", "admin")]:
             user = User(email=f"{name}@browser.example", password_hash=password_hash.hash(password), display_name=name)
             db.add(user); db.flush()
-            db.add(StaffAccount(id=user.id, name=name, role=role, team_id=team.id))
+            db.add(StaffAccount(id=user.id, name=name, role=role))
             db.flush()
-            if role == "accountant": db.add(DriverAssignment(driver_id=owner, accountant_id=user.id))
+            if name == "accountant-receipt": db.add(DriverAssignment(driver_id=owner, accountant_id=user.id))
         business = Business(owner_id=owner, kind="self_employment", name="Synthetic browser business")
         request = SupportRecord(owner_id=owner, kind="accountant_request", data={"kind": "filing_question", "tax_year": "2026-27", "status": "requested", "consent_version": "synthetic-only"})
         db.add_all([business, request]); db.flush()

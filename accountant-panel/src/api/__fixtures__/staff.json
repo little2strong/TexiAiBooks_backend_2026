@@ -6,8 +6,7 @@
       "id": "4f9ef6c4-0d00-4f15-81d8-0f96027f2de2",
       "name": "admin-flow",
       "email": "admin-flow@browser.example",
-      "role": "admin",
-      "team_id": "1b7acbce-7343-4a82-8738-69a2e1b4010a"
+      "role": "admin"
     }
   },
   "/api/v1/staff/config": {
@@ -289,7 +288,6 @@
     "id": "4f9ef6c4-0d00-4f15-81d8-0f96027f2de2",
     "name": "admin-flow",
     "role": "admin",
-    "team_id": "1b7acbce-7343-4a82-8738-69a2e1b4010a",
     "email": "admin-flow@browser.example"
   },
   "/api/v1/staff/drivers/search": {
@@ -566,7 +564,6 @@
         "id": "cf00a0dc-6cfe-480f-a403-7c14bf26f83e",
         "name": "accountant-receipt",
         "role": "accountant",
-        "team_id": "1b7acbce-7343-4a82-8738-69a2e1b4010a",
         "email": "accountant-receipt@browser.example"
       }
     ],

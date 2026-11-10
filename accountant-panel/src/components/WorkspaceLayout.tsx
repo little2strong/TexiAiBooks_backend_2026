@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Avatar, Button, Dropdown, Input, Modal, Select } from 'antd';
-import { LayoutDashboard, Sparkles, Car, ClipboardCheck, ChevronDown, FileCheck2, History, LogOut, PanelLeftClose, PanelLeftOpen, Percent, Search, Users, ShieldCheck, UserLock } from 'lucide-react';
+import { LayoutDashboard, Sparkles, Car, ClipboardCheck, ChevronDown, FileCheck2, Gauge, History, LogOut, PanelLeftClose, PanelLeftOpen, Percent, Search, Users, ShieldCheck, UserLock } from 'lucide-react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useSession, useWorkspace } from '../auth/context';
 import { api } from '../api/client';
+import { homeFor } from '../api/providers';
 import { session } from '../auth/session';
-import { can } from '../auth/permissions';
 import type { Driver } from '../api/types';
 import { initialQuery } from '../api/types';
 import { initials, label } from '../lib/format';
@@ -14,11 +14,37 @@ import { DataTable } from './DataTable';
 import { ThemeToggle } from './ThemeToggle';
 import type { InputRef } from 'antd';
 
-const sections: [string, string][] = [['/returns', 'Tax returns'], ['/ai-review', 'AI review'], ['/handoffs', 'Handoff queue'], ['/drivers', 'Driver directory'],
-  ['/admin/users', 'Users & roles'], ['/admin/rates', 'Tax rates'], ['/admin/privacy', 'Privacy requests'], ['/admin/audit', 'Audit log']];
+type Link = { to: string; text: string; icon: ReactNode; end?: boolean };
+
+// Each role sees only its own menu. The backend enforces the same split.
+const accountantLinks: Link[] = [
+  { to: '/', text: 'Dashboard', icon: <LayoutDashboard aria-hidden="true" />, end: true },
+  { to: '/handoffs', text: 'Handoff queue', icon: <ClipboardCheck aria-hidden="true" /> },
+  { to: '/returns', text: 'Tax returns', icon: <FileCheck2 aria-hidden="true" /> },
+  { to: '/ai-review', text: 'AI review', icon: <Sparkles aria-hidden="true" /> },
+  { to: '/drivers', text: 'Driver directory', icon: <Car aria-hidden="true" /> },
+];
+const adminWorkLinks: Link[] = [
+  { to: '/admin', text: 'Overview', icon: <Gauge aria-hidden="true" />, end: true },
+  { to: '/drivers', text: 'Drivers & assignment', icon: <Car aria-hidden="true" /> },
+  { to: '/handoffs', text: 'Handoff queue', icon: <ClipboardCheck aria-hidden="true" /> },
+  { to: '/returns', text: 'Tax returns', icon: <FileCheck2 aria-hidden="true" /> },
+  { to: '/ai-review', text: 'AI review', icon: <Sparkles aria-hidden="true" /> },
+];
+const adminSettingsLinks: Link[] = [
+  { to: '/admin/users', text: 'Staff accounts', icon: <Users aria-hidden="true" /> },
+  { to: '/admin/rates', text: 'Tax rates', icon: <Percent aria-hidden="true" /> },
+  { to: '/admin/privacy', text: 'Privacy requests', icon: <UserLock aria-hidden="true" /> },
+  { to: '/admin/audit', text: 'Audit log', icon: <History aria-hidden="true" /> },
+];
+
+function Nav({ links, label: name }: { links: Link[]; label: string }) {
+  return <nav aria-label={name}>{links.map(link => <NavLink key={link.to} to={link.to} end={link.end} aria-label={link.text}>{link.icon}<span>{link.text}</span></NavLink>)}</nav>;
+}
 
 export function WorkspaceLayout() {
   const active = useSession()!;
+  const admin = active.staff.role === 'admin';
   const { year, setYear, config } = useWorkspace();
   const [collapsed, setCollapsed] = useState(false);
   const [global, setGlobal] = useState('');
@@ -27,7 +53,10 @@ export function WorkspaceLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const searchInput = useRef<InputRef>(null);
-  const place = sections.find(([path]) => location.pathname.startsWith(path))?.[1] || 'Dashboard';
+  const links = admin ? [...adminSettingsLinks, ...adminWorkLinks] : accountantLinks;
+  // Longest match first, so /admin/users is not reported as /admin.
+  const place = [...links].sort((a, b) => b.to.length - a.to.length).find(link => link.end ? location.pathname === link.to : location.pathname.startsWith(link.to))?.text
+    || (location.pathname.startsWith('/drivers/') ? 'Driver profile' : admin ? 'Overview' : 'Dashboard');
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); searchInput.current?.focus(); }
@@ -41,29 +70,28 @@ export function WorkspaceLayout() {
     { accessorKey: 'accountant_name', header: 'Accountant', enableSorting: false },
   ], [navigate]);
   const signOut = async () => { try { await api.logout(); } catch { /* Local credentials must clear even if the network is unavailable. */ } finally { session.end(); } };
-  return <div className={`workspace ${collapsed ? 'sidebar-collapsed' : ''}`}>
+  const edition = admin ? 'Admin console' : 'Accountant panel';
+  return <div className={`workspace ${admin ? 'admin-console' : ''} ${collapsed ? 'sidebar-collapsed' : ''}`}>
     <a className="skip-link" href="#main-content">Skip to content</a>
     <aside className="sidebar" aria-label="Primary navigation">
-      <NavLink to="/" className="brand" aria-label="TaxiAiBooks home"><span className="brand-mark">t<span>.</span></span><span className="brand-text">TaxiAiBooks<small>ACCOUNTANT WORKSPACE</small></span></NavLink>
-      <div className="practice-label">YOUR WORKSPACE</div>
-      <nav><NavLink to="/" end aria-label="Dashboard"><LayoutDashboard aria-hidden="true" /><span>Dashboard</span></NavLink>
-        <NavLink to="/handoffs" aria-label="Handoff queue"><ClipboardCheck aria-hidden="true" /><span>Handoff queue</span></NavLink>
-        <NavLink to="/returns" aria-label="Tax returns"><FileCheck2 aria-hidden="true" /><span>Tax returns</span></NavLink>
-        <NavLink to="/ai-review" aria-label="AI review"><Sparkles aria-hidden="true" /><span>AI review</span></NavLink>
-        <NavLink to="/drivers" aria-label="Driver directory"><Car aria-hidden="true" /><span>Driver directory</span></NavLink></nav>
-      {can(active.staff.role, 'admin') && <><div className="practice-label workspace-nav-label">ADMINISTRATION</div>
-        <nav aria-label="Administration"><NavLink to="/admin/users" aria-label="Users and roles"><Users aria-hidden="true" /><span>Users & roles</span></NavLink>
-          <NavLink to="/admin/rates" aria-label="Tax rates"><Percent aria-hidden="true" /><span>Tax rates</span></NavLink>
-          <NavLink to="/admin/privacy" aria-label="Privacy requests"><UserLock aria-hidden="true" /><span>Privacy requests</span></NavLink>
-          <NavLink to="/admin/audit" aria-label="Audit log"><History aria-hidden="true" /><span>Audit log</span></NavLink></nav></>}
-      <div className="sidebar-bottom"><div className="security-card"><ShieldCheck /><strong>Secure workspace</strong><span>Access is scoped. Actions are audited.</span></div>
+      <NavLink to={homeFor(active.staff.role)} className="brand" aria-label="TaxiAiBooks home"><span className="brand-mark">t<span>.</span></span><span className="brand-text">TaxiAiBooks<small>{admin ? 'ADMIN CONSOLE' : 'ACCOUNTANT WORKSPACE'}</small></span></NavLink>
+      {admin ? <>
+        <div className="practice-label">PRACTICE</div>
+        <Nav links={adminWorkLinks} label="Practice" />
+        <div className="practice-label workspace-nav-label">ADMINISTRATION</div>
+        <Nav links={adminSettingsLinks} label="Administration" />
+      </> : <>
+        <div className="practice-label">YOUR WORKSPACE</div>
+        <Nav links={accountantLinks} label="Workspace" />
+      </>}
+      <div className="sidebar-bottom"><div className="security-card"><ShieldCheck /><strong>{admin ? 'Administrator access' : 'Secure workspace'}</strong><span>{admin ? 'Every change you make is audited.' : 'Access is scoped. Actions are audited.'}</span></div>
         <Dropdown menu={{ items: [{ key: 'logout', label: 'Sign out', icon: <LogOut />, onClick: () => void signOut() }] }} trigger={['click']}>
           <button className="staff-menu" aria-label={`${active.staff.name}, account menu`}><Avatar className="staff-avatar">{initials(active.staff.name)}</Avatar><span><strong>{active.staff.name}</strong><small>{label(active.staff.role)}</small></span><ChevronDown /></button>
         </Dropdown></div>
     </aside>
     <div className="workspace-body"><header className="topbar">
       <Button type="text" icon={collapsed ? <PanelLeftOpen /> : <PanelLeftClose />} aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'} onClick={() => setCollapsed(!collapsed)} />
-      <span className="topbar-context">Accountant panel <span>/</span> <strong>{place}</strong></span>
+      <span className="topbar-context">{edition} <span>/</span> <strong>{place}</strong></span>
       <Input.Search ref={searchInput} prefix={<Search />} suffix={<kbd>⌘ / Ctrl K</kbd>} aria-label="Global driver search" placeholder="Search drivers…" value={global} maxLength={254}
         onChange={event => setGlobal(event.target.value)} onSearch={value => { if (value.trim()) { setSearchQuery({ ...initialQuery, search: value.trim() }); setSearchOpen(true); setGlobal(''); } }} className="global-search" />
       <Select aria-label="Workspace tax year" className="year-select" value={year} onChange={setYear} options={config.tax_years.map(value => ({ value, label: `Tax year ${value}` }))} />
@@ -76,7 +104,7 @@ export function WorkspaceLayout() {
     <footer className="workspace-footer"><span>Drive. Snap. Done.</span><span><ShieldCheck /> Financial data is private · UK dates & GBP</span></footer>
     </div>
     <Modal title="Find a driver" open={searchOpen} onCancel={() => { setSearchOpen(false); setSearchQuery(initialQuery); }} footer={null} width={1000} destroyOnHidden>
-      <p className="muted">Results follow your assigned-driver permissions. UTR searches require an exact ten-digit value.</p>
+      <p className="muted">{admin ? 'Searches every driver in the practice.' : 'Results follow your assigned-driver permissions.'} UTR searches require an exact ten-digit value.</p>
       <DataTable resource="drivers" title="Driver search" query={searchQuery} onQuery={setSearchQuery} columns={columns} />
     </Modal>
   </div>;

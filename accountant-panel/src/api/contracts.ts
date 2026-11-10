@@ -9,7 +9,7 @@ const timestamp = text.refine(value => Number.isFinite(Date.parse(value)), 'Inva
 const object = <T extends z.ZodRawShape>(shape: T) => z.object(shape).passthrough();
 const record = z.record(text, z.unknown());
 const strings = z.array(text);
-const staff = object({ id: text, name: text, email: text, role: z.enum(['accountant', 'senior_accountant', 'admin', 'support']), team_id: nullableText });
+const staff = object({ id: text, name: text, email: text, role: z.enum(['admin', 'accountant']) });
 const driver = object({ id: text, name: text, email: nullableText, accountant_id: nullableText, accountant_name: nullableText, created_at: timestamp });
 const event = object({ id: text, actor_name: text, action: text, created_at: timestamp, before: record.nullable(), after: record.nullable() });
 const review = { reviewed_by: nullableText.optional(), reviewed_at: timestamp.nullable().optional() };
@@ -77,7 +77,14 @@ const aiRow = object({ id: text, driver_id: text, driver_name: text, created_at:
   amount_pence: integer.nullable().optional(), occurred_on: timestamp.nullable().optional(), suggested_category: nullableText,
   confidence: z.union([z.number(), text, z.record(text, z.number())]).nullish(), warnings: strings, feedback_verdict: nullableText, feedback_by: nullableText, feedback_reason: nullableText });
 const aiSummary = object({ extractions: count, reviewed: count, open: count, accepted: count, corrected: count, rejected: count, acceptance_percent: count.nullable() });
-const staffRow = staff.extend({ active: z.boolean(), version: count, team_name: nullableText, last_seen_at: timestamp.nullable(), assigned_drivers: count });
+const staffRow = staff.extend({ active: z.boolean(), version: count, last_seen_at: timestamp.nullable(), assigned_drivers: count });
+const adminOverview = object({ tax_year: text, as_of: timestamp, drivers: object({ total: count, unassigned: count }),
+  staff: object({ admins: count, accountants: count, inactive: count }),
+  handoffs: object({ open: count, unassigned: count, new: count, in_review: count, waiting_on_driver: count, ready_to_file: count }),
+  returns: object({ in_preparation: count, awaiting_driver: count, driver_approved: count, filed: count }),
+  privacy: object({ open: count, overdue: count }), rates: object({ draft: count, approved: count }), ai_reviews_open: count,
+  deadline: object({ due_on: timestamp, days_remaining: integer, tax_year: text }),
+  workload: z.array(object({ id: text, name: text, active: z.boolean(), assigned_drivers: count, open_handoffs: count, returns_in_progress: count })) });
 const rateRow = object({ id: text, tax_year: text, region: text, code: text, value: record, status: z.enum(['draft', 'approved', 'active', 'retired']), official_url: text,
   reason: text, version: count, created_by_name: nullableText, approved_by_name: nullableText, created_at: timestamp, activated_at: timestamp.nullable() });
 const privacyRow = object({ id: text, driver_id: text, driver_name: text, driver_email: nullableText, kind: z.enum(['export', 'access', 'correction', 'deletion']),
@@ -98,8 +105,9 @@ const tableResources: Record<string, z.ZodType> = { drivers: resourceMappers.dri
 export function responseSchema(path: string, method = 'GET'): z.ZodType {
   const tail = path.split('/').filter(Boolean).at(-1);
   if (path.endsWith('/auth/login')) return object({ access_token: text.min(1), expires_in: count.min(1), staff: resourceMappers.staff });
-  if (path.endsWith('/teams/search')) return object({ items: z.array(object({ id: text, name: text })) });
-  if (path.endsWith('/teams')) return object({ id: text, name: text });
+  if (path.endsWith('/admin/overview')) return adminOverview;
+  if (/\/staff\/users\/[^/]+\/password$/.test(path)) return staffRow;
+  if (path.endsWith('/drivers/assign')) return object({ items: z.array(resourceMappers.driver) });
   if (path.endsWith('/ai-reviews/summary')) return aiSummary;
   if (/\/ai-reviews\/[^/]+\/feedback$/.test(path)) return aiRow;
   if (path.endsWith('/rates/effective') || path.includes('/rates/effective?')) return object({ id: nullableText, tax_year: text, region: text, version: nullableText, rules: z.array(rule), unavailable_reason: text.optional() });

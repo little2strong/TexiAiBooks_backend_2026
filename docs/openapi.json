@@ -6867,6 +6867,62 @@
         ]
       }
     },
+    "/api/v1/staff/drivers/assign": {
+      "post": {
+        "tags": [
+          "staff accountant panel"
+        ],
+        "summary": "Assign Drivers",
+        "operationId": "assign_drivers_api_v1_staff_drivers_assign_post",
+        "security": [
+          {
+            "StaffBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriverAssignmentInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/staff/handoffs/assign": {
       "post": {
         "tags": [
@@ -9105,43 +9161,30 @@
         }
       }
     },
-    "/api/v1/staff/teams/search": {
+    "/api/v1/staff/users/{id}/password": {
       "post": {
         "tags": [
           "staff administration"
         ],
-        "summary": "Teams",
-        "operationId": "teams_api_v1_staff_teams_search_post",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "StaffBearer": []
-          }
-        ]
-      }
-    },
-    "/api/v1/staff/teams": {
-      "post": {
-        "tags": [
-          "staff administration"
-        ],
-        "summary": "Create Team",
-        "operationId": "create_team_api_v1_staff_teams_post",
+        "summary": "Reset Staff Password",
+        "description": "Set a new first password, for when someone is locked out and email recovery is not set up.",
+        "operationId": "reset_staff_password_api_v1_staff_users__id__password_post",
         "security": [
           {
             "StaffBearer": []
           }
         ],
         "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          },
           {
             "name": "Idempotency-Key",
             "in": "header",
@@ -9158,13 +9201,13 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TeamInput"
+                "$ref": "#/components/schemas/PasswordReset"
               }
             }
           }
         },
         "responses": {
-          "201": {
+          "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
@@ -9183,6 +9226,51 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/staff/admin/overview": {
+      "post": {
+        "tags": [
+          "staff administration"
+        ],
+        "summary": "Admin Overview",
+        "description": "Practice-wide numbers for the admin console: people, work waiting and things only an admin can do.",
+        "operationId": "admin_overview_api_v1_staff_admin_overview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/YearInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "StaffBearer": []
+          }
+        ]
       }
     },
     "/api/v1/staff/audit/search": {
@@ -11754,6 +11842,46 @@
         ],
         "title": "DocumentPatch"
       },
+      "DriverAssignmentInput": {
+        "properties": {
+          "driver_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Driver Ids"
+          },
+          "accountant_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accountant Id"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "driver_ids",
+          "accountant_id",
+          "reason"
+        ],
+        "title": "DriverAssignmentInput"
+      },
       "DriverDecision": {
         "properties": {
           "expected_version": {
@@ -13299,6 +13427,37 @@
         ],
         "title": "Page[VehicleRead]"
       },
+      "PasswordReset": {
+        "properties": {
+          "expected_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Version"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 12,
+            "format": "password",
+            "title": "Password",
+            "writeOnly": true
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 3,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expected_version",
+          "password",
+          "reason"
+        ],
+        "title": "PasswordReset"
+      },
       "PlatformReport": {
         "properties": {
           "tax_year": {
@@ -14403,24 +14562,10 @@
           "role": {
             "type": "string",
             "enum": [
-              "accountant",
-              "senior_accountant",
               "admin",
-              "support"
+              "accountant"
             ],
             "title": "Role"
-          },
-          "team_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Team Id"
           },
           "password": {
             "type": "string",
@@ -14467,24 +14612,10 @@
           "role": {
             "type": "string",
             "enum": [
-              "accountant",
-              "senior_accountant",
               "admin",
-              "support"
+              "accountant"
             ],
             "title": "Role"
-          },
-          "team_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Team Id"
           }
         },
         "additionalProperties": false,
@@ -14493,8 +14624,7 @@
           "id",
           "name",
           "email",
-          "role",
-          "team_id"
+          "role"
         ],
         "title": "StaffIdentity"
       },
@@ -14512,6 +14642,15 @@
             "format": "password",
             "title": "Password",
             "writeOnly": true
+          },
+          "portal": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "accountant"
+            ],
+            "title": "Portal",
+            "default": "accountant"
           }
         },
         "additionalProperties": false,
@@ -14570,10 +14709,8 @@
               {
                 "type": "string",
                 "enum": [
-                  "accountant",
-                  "senior_accountant",
                   "admin",
-                  "support"
+                  "accountant"
                 ]
               },
               {
@@ -14581,18 +14718,6 @@
               }
             ],
             "title": "Role"
-          },
-          "team_id": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "uuid"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Team Id"
           },
           "active": {
             "anyOf": [
@@ -15235,22 +15360,6 @@
           "has_paye_job"
         ],
         "title": "TaxProfileInput"
-      },
-      "TeamInput": {
-        "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 100,
-            "minLength": 1,
-            "title": "Name"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "title": "TeamInput"
       },
       "Token": {
         "properties": {

@@ -14,7 +14,6 @@ const identity: StaffLoginResult = {
     name: "Synthetic accountant",
     email: "synthetic@example.invalid",
     role: "accountant",
-    team_id: null,
   },
 };
 afterEach(() => {
@@ -46,6 +45,7 @@ describe("staff credential boundary", () => {
     expect(JSON.parse(options.body)).toEqual({
       email: identity.staff.email,
       password: "synthetic-password",
+      portal: "accountant",
     });
     expect(options.headers.has("Authorization")).toBe(false);
     expect(store).not.toHaveBeenCalled();
@@ -107,20 +107,24 @@ describe("staff credential boundary", () => {
     });
     expect(fetchMock.mock.calls[1][1].headers.has("Authorization")).toBe(false);
   });
-  it("denies support financial mutations and permits internal support notes", () => {
-    for (const action of [
-      "edit",
-      "assign",
-      "reveal",
-      "message",
-      "export",
-      "admin",
-      "approve_submission",
-    ] as const)
-      expect(can("support", action)).toBe(false);
-    expect(can("support", "note")).toBe(true);
+  it("sends the admin portal and lands an admin on the admin console", async () => {
+    const admin = { ...identity, staff: { ...identity.staff, role: "admin" as const } };
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(admin), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await authProvider.login({ email: admin.staff.email, password: "synthetic-password", portal: "admin" }))
+      .toMatchObject({ success: true, redirectTo: "/admin" });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).portal).toBe("admin");
+    session.end();
+    // After sign-out the admin goes back to the admin sign-in page.
+    expect(await authProvider.check({})).toMatchObject({ authenticated: false, redirectTo: "/admin/login" });
+  });
+  it("keeps assignment, filing and administration for admins only", () => {
+    for (const action of ["assign", "admin", "approve_submission"] as const) {
+      expect(can("accountant", action)).toBe(false);
+      expect(can("admin", action)).toBe(true);
+    }
+    for (const action of ["read", "edit", "reveal", "message", "export", "note"] as const)
+      expect(can("accountant", action)).toBe(true);
     expect(can(undefined, "read")).toBe(false);
-    expect(can("accountant", "approve_submission")).toBe(false);
-    expect(can("senior_accountant", "approve_submission")).toBe(true);
   });
 });

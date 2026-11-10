@@ -12,7 +12,7 @@ Requires Node **22.12+**, the existing Python environment, PostgreSQL and backen
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-access-log
 ```
 
-Run migrations against the intended database after reviewing migration `0006`. Provisioning asks for the password privately. Staff sign in directly with their email and password. Use the same CLI with `--role accountant --team "Your team"` or `--role senior_accountant --team "Your team"`. Staff identities must be new; existing driver identities are never implicitly promoted. There are no default credentials or demo records. An existing `IDENTIFIER_ENCRYPTION_KEYS` ring is required for driver identifier access; staff login does not require an authenticator or encryption key. Back up this key ring securely.
+Run migrations against the intended database after reviewing migration `0006`. Provisioning asks for the password privately. Staff sign in directly with their email and password. Use the same CLI with `--role accountant` for accountants. There are two roles: admins sign in at `/admin/login` and accountants at `/login`; each page refuses the other role. An admin can also add staff, reset their passwords and assign drivers from the admin console. Staff identities must be new; existing driver identities are never implicitly promoted. There are no default credentials or demo records. An existing `IDENTIFIER_ENCRYPTION_KEYS` ring is required for driver identifier access; staff login does not require an authenticator or encryption key. Back up this key ring securely.
 
 In a second terminal:
 
@@ -23,7 +23,7 @@ Copy-Item .env.example .env.local
 npm run dev
 ```
 
-Open **http://127.0.0.1:5173**. Sign in with the provisioned staff email and password. A driver’s existing consented accountant request appears in the handoff queue; an admin can assign it to an accountant. Empty databases show empty states.
+Open **http://127.0.0.1:5173/admin/login** for the admin console or **http://127.0.0.1:5173/login** for the accountant workspace, and sign in with the provisioned staff email and password. A driver’s existing consented accountant request appears in the handoff queue; an admin can assign it to an accountant. Empty databases show empty states.
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
@@ -69,7 +69,7 @@ Human messages are stored in a separate accountant thread; notes/tickets are int
 
 The additive endpoint table, exact requests/responses and role rules were listed before implementation in [ACCOUNTANT_PANEL_CONTRACTS.md](../docs/ACCOUNTANT_PANEL_CONTRACTS.md). Exact schemas are in [openapi.json](../docs/openapi.json). Existing driver APIs stay compatible; `tax_year` is an optional addition to accountant requests, and two human-message endpoints are additive. Old requests with no export/year show **Year not supplied** and do not imply a filing deadline.
 
-No final tax filing is introduced. Filing is recorded on the tax return with an external reference, after driver sign-off and by a senior accountant or admin; it does not send anything to HMRC. Production provider setup, retention/deletion policy and broader tax limitations remain as documented by the existing backend.
+No final tax filing is introduced. Filing is recorded on the tax return with an external reference, after driver sign-off and by an admin; it does not send anything to HMRC. Production provider setup, retention/deletion policy and broader tax limitations remain as documented by the existing backend.
 
 ## Verify
 

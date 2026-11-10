@@ -9,19 +9,15 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db import Base
 
 
-class StaffTeam(Base):
-    __tablename__ = "staff_teams"
-    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    name: Mapped[str] = mapped_column(String(100), unique=True)
+STAFF_ROLES = ("admin", "accountant")
 
 
 class StaffAccount(Base):
     __tablename__ = "staff_accounts"
-    __table_args__ = (CheckConstraint("role IN ('accountant','senior_accountant','admin','support')", name="role_valid"),)
+    __table_args__ = (CheckConstraint("role IN ('accountant','admin')", name="role_valid"),)
     id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
     name: Mapped[str] = mapped_column(String(100))
     role: Mapped[str] = mapped_column(String(24))
-    team_id: Mapped[UUID | None] = mapped_column(ForeignKey("staff_teams.id"), index=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     version: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     # Legacy columns retained for existing databases; password login does not use them.

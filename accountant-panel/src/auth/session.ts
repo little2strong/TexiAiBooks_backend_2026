@@ -1,6 +1,8 @@
-import type { Staff, StaffLoginResult } from "../api/types";
+import type { Role, Staff, StaffLoginResult } from "../api/types";
 
 let current: { token: string; staff: Staff; expiresAt: number } | null = null;
+// Kept after sign-out so an expired session returns to the right sign-in page.
+let lastRole: Role | null = null;
 const listeners = new Set<() => void>();
 let expiryTimer: ReturnType<typeof setTimeout> | undefined;
 let notice: string | null = null;
@@ -12,6 +14,7 @@ export const session = {
   start: (result: StaffLoginResult) => {
     notice = null;
     clearTimeout(expiryTimer);
+    lastRole = result.staff.role;
     current = {
       token: result.access_token,
       staff: result.staff,
@@ -21,6 +24,7 @@ export const session = {
     listeners.forEach((listener) => listener());
   },
   notice: () => notice,
+  lastRole: () => lastRole,
   end: (reason?: string) => {
     notice = reason || null;
     clearTimeout(expiryTimer);

@@ -39,7 +39,7 @@ function AssignDialog({ selected, close, done }: { selected: Handoff[]; close: (
   };
   return <Modal title={`Assign ${selected.length} handoff(s)`} open onCancel={close} onOk={() => form.submit()} confirmLoading={busy}>
     <Alert type="info" title="Assignment is at driver level" description="Reassigning a handoff also reassigns that driver's other handoffs and financial access." className="form-alert" />
-    <QueryState pending={result.isPending} error={result.error} retry={result.refetch} empty={result.isSuccess && !result.data.items.length} emptyMessage="No eligible accountant matches this search and team scope. Clear the search or ask an admin."><p>{result.data?.total} eligible accountant(s) in this search.</p></QueryState>
+    <QueryState pending={result.isPending} error={result.error} retry={result.refetch} empty={result.isSuccess && !result.data.items.length} emptyMessage="No active accountant matches this search. Clear the search or add an accountant on the Staff accounts page."><p>{result.data?.total} eligible accountant(s) in this search.</p></QueryState>
     <Form form={form} layout="vertical" onFinish={submit}>
       <Form.Item name="accountant_id" label="Accountant" rules={[{ required: true }]}><Select showSearch={{ filterOption: false, onSearch: value => { setSearch(value); setAccountantPage(1); } }}
         loading={result.isPending} options={result.data?.items.map(staff => ({ value: staff.id, label: `${staff.name} · ${label(staff.role)}` }))} placeholder="Search an accountant" /></Form.Item>

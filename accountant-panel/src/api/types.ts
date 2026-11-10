@@ -1,10 +1,9 @@
-export type Role = "accountant" | "senior_accountant" | "admin" | "support";
+export type Role = "admin" | "accountant";
 export interface Staff {
   id: string;
   name: string;
   email: string;
   role: Role;
-  team_id: string | null;
 }
 export interface TableQuery {
   page: number;
@@ -314,9 +313,21 @@ export interface AiSummary {
 export interface StaffRow extends Staff {
   active: boolean;
   version: number;
-  team_name: string | null;
   last_seen_at: string | null;
   assigned_drivers: number;
+}
+export interface AdminOverview {
+  tax_year: string;
+  as_of: string;
+  drivers: { total: number; unassigned: number };
+  staff: { admins: number; accountants: number; inactive: number };
+  handoffs: { open: number; unassigned: number; new: number; in_review: number; waiting_on_driver: number; ready_to_file: number };
+  returns: { in_preparation: number; awaiting_driver: number; driver_approved: number; filed: number };
+  privacy: { open: number; overdue: number };
+  rates: { draft: number; approved: number };
+  ai_reviews_open: number;
+  deadline: { due_on: string; days_remaining: number; tax_year: string };
+  workload: { id: string; name: string; active: boolean; assigned_drivers: number; open_handoffs: number; returns_in_progress: number }[];
 }
 export interface RateRow {
   id: string;

@@ -427,8 +427,8 @@ def staff_mtd(driver_id: UUID, auth: StaffAuth, db: SessionDep):
 @staff_router.post("/drivers/{driver_id}/mtd/override")
 def staff_mtd_override(driver_id: UUID, data: MtdOverride, auth: StaffAuth, db: SessionDep, request: Request, key: Key):
     staff = auth[0]
-    if staff.role not in {"admin", "senior_accountant"}:
-        raise HTTPException(403, "MTD exemptions require a senior accountant")
+    if staff.role != "admin":
+        raise HTTPException(403, "Only an admin can change an MTD exemption")
     user = require_driver(db, staff, driver_id, write=True)
     def apply():
         require_driver(db, staff, driver_id, write=True)

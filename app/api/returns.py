@@ -253,8 +253,8 @@ def request_approval(id: UUID, data: ReasonInput, auth: StaffAuth, db: SessionDe
 def record_filing(id: UUID, data: FileInput, auth: StaffAuth, db: SessionDep, request: Request, key: Key):
     staff = auth[0]
     def apply():
-        if staff.role not in {"admin", "senior_accountant"}:
-            raise HTTPException(403, "Filing sign-off requires a senior accountant")
+        if staff.role != "admin":
+            raise HTTPException(403, "Only an admin can record a filing")
         row = locked_return(db, staff, id)
         check_version(row, data.expected_version)
         if row.status != "driver_approved":
@@ -285,8 +285,8 @@ def reopen(id: UUID, data: ReasonInput, auth: StaffAuth, db: SessionDep, request
         check_version(row, data.expected_version)
         if row.status == "in_preparation":
             raise HTTPException(409, "This return is already in preparation")
-        if row.status == "filed" and staff.role not in {"admin", "senior_accountant"}:
-            raise HTTPException(403, "Reopening a filed return requires a senior accountant")
+        if row.status == "filed" and staff.role != "admin":
+            raise HTTPException(403, "Only an admin can reopen a filed return")
         previous = {**(row.snapshot or {}), "ended_status": row.status, "filing_reference": row.filing_reference, "reopen_reason": data.reason}
         row.earlier_snapshots = [*row.earlier_snapshots, jsonable_encoder(previous)]
         row.status, row.snapshot, row.filing_reference, row.filed_at, row.filed_by = "in_preparation", None, None, None, None

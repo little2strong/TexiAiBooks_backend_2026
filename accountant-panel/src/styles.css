@@ -1809,3 +1809,89 @@ tr:focus-within .row-action {
     animation: none;
   }
 }
+
+/* Admin console: same structure as the accountant workspace, with its own colour so the two are never confused. */
+.admin-console .sidebar {
+  background: linear-gradient(180deg, var(--brand-ink) 0%, var(--admin-ink) 100%);
+}
+.admin-console .brand-text small {
+  color: var(--brand-primary);
+}
+.stat-link {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.stat-link:hover {
+  border-color: var(--brand-primary);
+}
+.stat-link:focus-visible {
+  outline: 2px solid var(--brand-primary);
+  outline-offset: 2px;
+}
+.admin-tasks,
+.admin-workload {
+  padding: var(--space-5);
+}
+.admin-tasks ul {
+  display: grid;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-tasks li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-card);
+}
+.admin-task-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.admin-task-text small,
+.admin-tasks-clear {
+  color: var(--text-secondary);
+}
+.admin-workload .table-scroll {
+  margin-top: var(--space-4);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-card);
+}
+@media (max-width: 720px) {
+  .admin-tasks li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .admin-tasks li > .ant-btn {
+    grid-column: 1 / -1;
+  }
+}
+.role-option {
+  display: flex;
+  flex-direction: column;
+  white-space: normal;
+  line-height: 1.4;
+}
+.role-option small {
+  color: var(--text-secondary);
+}
+.you-tag {
+  margin-inline-start: var(--space-2);
+}
+.role-tag {
+  color: var(--text-primary);
+  border-color: var(--border);
+  background: var(--bg-subtle);
+}
+.role-tag.role-admin {
+  border-color: var(--brand-primary);
+  background: var(--brand-bg);
+}
